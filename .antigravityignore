@@ -1,0 +1,13 @@
+# Ignore heavy third-party dependencies
+node_modules/
+**/node_modules/
+
+# Ignore production build outputs
+dist/
+build/
+.tours/
+
+# Ignore system and environment files
+.env
+.DS_Store
+.git/

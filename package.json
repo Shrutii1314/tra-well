@@ -1,0 +1,20 @@
+{
+  "name": "tra-well",
+  "version": "1.0.0",
+  "description": "Production-grade Tour Booking Platform",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "postcss": "8.4.31"
+  }
+}
