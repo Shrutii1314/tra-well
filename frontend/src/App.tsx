@@ -1,10 +1,17 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
+import Home from './pages/Home';
 import ToursDashboard from './pages/ToursDashboard';
 import AuthPage from './pages/AuthPage';
 import TourDetail from './pages/TourDetail';
 import AdminPage from './pages/AdminPage';
 import ProfilePage from './pages/ProfilePage';
+import AgenciesDashboard from './pages/AgenciesDashboard';
+import AgencyProfile from './pages/AgencyProfile';
+import AgencyRegister from './pages/agency/AgencyRegister';
+import AgencyPortal from './pages/agency/AgencyPortal';
+import About from './pages/About';
+import Contact from './pages/Contact';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Auth Protection Component
@@ -25,47 +32,127 @@ function App() {
           {/* Public Auth Route */}
           <Route path="/auth" element={<AuthPage />} />
           
-          {/* Protected Routes inside Layout */}
+          {/* Agency Onboarding Registration */}
+          <Route path="/agency/register" element={<AgencyRegister />} />
+
+          {/* Dedicated Agency & Tour Guide Management Portal */}
+          <Route path="/agency" element={<AgencyPortal />} />
+          <Route path="/agency/dashboard" element={<AgencyPortal />} />
+          <Route path="/agency/tours" element={<AgencyPortal />} />
+          <Route path="/agency/bookings" element={<AgencyPortal />} />
+          <Route path="/agency/settings" element={<AgencyPortal />} />
+
+          {/* Public Homepage */}
           <Route 
             path="/" 
             element={
-              <ProtectedRoute>
-                <Layout>
-                  <ToursDashboard />
-                </Layout>
-              </ProtectedRoute>
+              <Layout>
+                <Home />
+              </Layout>
             } 
           />
           
-          {/* /tours also leads to Dashboard */}
+          {/* Public Explore Tours Page */}
           <Route 
             path="/tours" 
             element={
-              <ProtectedRoute>
-                <Layout>
-                  <ToursDashboard />
-                </Layout>
-              </ProtectedRoute>
+              <Layout>
+                <ToursDashboard />
+              </Layout>
             } 
           />
 
+          {/* Public Tour Detail Page */}
           <Route 
             path="/tours/:id" 
             element={
-              <ProtectedRoute>
-                <Layout>
-                  <TourDetail />
-                </Layout>
-              </ProtectedRoute>
+              <Layout>
+                <TourDetail />
+              </Layout>
             } 
           />
 
+          {/* Public Agencies Directory Page */}
+          <Route 
+            path="/agencies" 
+            element={
+              <Layout>
+                <AgenciesDashboard />
+              </Layout>
+            } 
+          />
+
+          {/* Public Agency Profile Page */}
+          <Route 
+            path="/agencies/:id" 
+            element={
+              <Layout>
+                <AgencyProfile />
+              </Layout>
+            } 
+          />
+
+          {/* Public About Page */}
+          <Route 
+            path="/about" 
+            element={
+              <Layout>
+                <About />
+              </Layout>
+            } 
+          />
+
+          {/* Public Contact Page */}
+          <Route 
+            path="/contact" 
+            element={
+              <Layout>
+                <Contact />
+              </Layout>
+            } 
+          />
+
+          {/* Protected Admin Route */}
           <Route 
             path="/admin" 
             element={
               <ProtectedRoute>
                 <Layout>
                   <AdminPage />
+                </Layout>
+              </ProtectedRoute>
+            } 
+          />
+
+          {/* Protected Profile & Traveler Dashboard Routes */}
+          <Route 
+            path="/my-dashboard" 
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <ProfilePage />
+                </Layout>
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/my-profile" 
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <ProfilePage />
+                </Layout>
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/my-bookings" 
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <ProfilePage />
                 </Layout>
               </ProtectedRoute>
             } 

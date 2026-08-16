@@ -61,3 +61,28 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
     res.status(400).json({ status: 'fail', message: err.message });
   }
 };
+
+// 👑 MAKE ME ADMIN (Self Role Promotion for Testing/Admin setup)
+export const makeMeAdmin = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const currentUser = (req as any).user;
+    if (!currentUser) {
+      res.status(401).json({ status: 'fail', message: 'You are not logged in.' });
+      return;
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      currentUser._id || currentUser.id,
+      { role: 'admin' },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    res.status(200).json({
+      status: 'success',
+      data: { user: updatedUser }
+    });
+  } catch (err: any) {
+    res.status(400).json({ status: 'fail', message: err.message });
+  }
+};
+

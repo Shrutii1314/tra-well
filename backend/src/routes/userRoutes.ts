@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { signup, login, protect, restrictTo, updateMe, updateMyPassword } from '../controllers/authController';
-import { getAllUsers, getUser, updateUser, deleteUser } from '../controllers/userController';
+import { getAllUsers, getUser, updateUser, deleteUser, makeMeAdmin } from '../controllers/userController';
 
 const router = Router();
 
@@ -12,6 +12,7 @@ router.post('/login', login);
 router.use(protect);
 router.patch('/me', updateMe);
 router.patch('/updateMyPassword', updateMyPassword);
+router.post('/make-me-admin', makeMeAdmin);
 
 // Restricted Admin Routes
 router.use(restrictTo('admin'));

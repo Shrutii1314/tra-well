@@ -1,78 +1,242 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Compass, Shield } from 'lucide-react';
+import { Search, MapPin, DollarSign, Users, Clock, Calendar, RotateCcw, Sparkles } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
-const Hero: React.FC = () =>{
+export interface FilterState {
+  destination: string;
+  maxPrice: number;
+  groupSize: string;
+  duration: string;
+  startDate: string;
+}
+
+interface HeroProps {
+  onFilterChange?: (filters: FilterState) => void;
+  initialFilters?: FilterState;
+}
+
+const DEFAULT_FILTERS: FilterState = {
+  destination: 'all',
+  maxPrice: 2000,
+  groupSize: 'all',
+  duration: 'all',
+  startDate: '',
+};
+
+const Hero: React.FC<HeroProps> = ({ onFilterChange, initialFilters }) => {
+  const navigate = useNavigate();
+  const [filters, setFilters] = useState<FilterState>(initialFilters || DEFAULT_FILTERS);
+  const [quickKeyword, setQuickKeyword] = useState('');
+
+  const handleChange = (field: keyof FilterState, value: any) => {
+    const updated = { ...filters, [field]: value };
+    setFilters(updated);
+  };
+
+  const handleFilterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (onFilterChange) {
+      onFilterChange(filters);
+    } else {
+      const params = new URLSearchParams({
+        destination: filters.destination !== 'all' ? filters.destination : '',
+        maxPrice: filters.maxPrice.toString(),
+        groupSize: filters.groupSize !== 'all' ? filters.groupSize : '',
+        duration: filters.duration !== 'all' ? filters.duration : '',
+        startDate: filters.startDate,
+        keyword: quickKeyword
+      });
+      navigate(`/tours?${params.toString()}`);
+    }
+  };
+
+  const handleReset = () => {
+    setFilters(DEFAULT_FILTERS);
+    setQuickKeyword('');
+    if (onFilterChange) {
+      onFilterChange(DEFAULT_FILTERS);
+    }
+  };
+
   return (
-    <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden py-20 px-6">
-      { /* Background Decor */}
-      <div className="absolute inset-0 z-0">
-        <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] animate-pulse"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-accent/10 rounded-full blur-[120px] animate-pulse" style= {{ animationDelay: '2s' }}></div>
-      </div>
-      
-      <div className="max-w-7xl mx-auto relative z-10 text-center">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-          className="space-y-8"
-        >
-          <div className="flex items-center justify-center gap-3">
-            <span className="h-px w-12 bg-primary/30"></span>
-            <span className="text-primary font-mono text-sm tracking-[0.4em] font-bold uppercase">Ultimate Luxury Travel</span>
-            <span className="h-px w-12 bg-primary/30"></span>
-          </div>
+    <section className="relative pt-2 pb-8 space-y-8">
+      {/* Hero Banner Container */}
+      <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-950 text-white min-h-[520px] flex items-center justify-center p-6 sm:p-12">
+        {/* Background Image with Dark Atmospheric Overlay */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-transform duration-1000 scale-105"
+          style={{ 
+            backgroundImage: `url('https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2000&auto=format&fit=crop')` 
+          }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/75 to-slate-950/40"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/10 via-transparent to-transparent"></div>
 
-          <h1 className="text-6xl md:text-8xl font-display font-extrabold text-white tracking-tighter leading-tight">
-            CRAFTING <br />
-            <span className="text-gradient-emerald italic">ETHEREAL</span> JOURNEYS
-          </h1>
-          
-          <p className="text-xl md:text-2xl text-gray-400 max-w-3xl mx-auto leading-relaxed">
-            Exclusive access to the world's most breathtaking retreats. 
-            Meticulously designed for the discerning traveler.
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-6 justify-center pt-8">
-            <button className="btn-luxury-primary px-10 py-5 text-lg flex items-center justify-center gap-3">
-              <Compass size={22} />
-              <span>EXPLORE DASHBOARD</span>
-            </button>
-            <button className="btn-luxury-outline px-10 py-5 text-lg flex items-center justify-center gap-3">
-              <Shield size={22} className="text-accent" />
-              <span>PRIVATE ACCESS</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 pt-20 max-w-4xl mx-auto">
-            <div className="glass-morphism p-6 rounded-2xl border-white/5 space-y-2">
-              <div className="text-3xl font-display font-bold text-white">500+</div>
-              <div className="text-xs text-gray-500 font-mono tracking-widest uppercase">Global Retreats</div>
+        {/* Content Box */}
+        <div className="relative z-10 w-full max-w-5xl mx-auto space-y-8 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="space-y-4 max-w-3xl mx-auto"
+          >
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-900/80 border border-amber-500/30 text-amber-400 font-bold text-xs uppercase tracking-widest backdrop-blur-md shadow-lg">
+              <Sparkles size={14} className="text-amber-400" />
+              <span>Unforgettable Expeditions & Mountain Treks</span>
             </div>
-            <div className="glass-morphism p-6 rounded-2xl border-white/5 space-y-2">
-              <div className="text-3xl font-display font-bold text-white">12k+</div>
-              <div className="text-xs text-gray-500 font-mono tracking-widest uppercase">Verified Explorers</div>
-            </div>
-            <div className="glass-morphism p-6 rounded-2xl border-white/5 space-y-2">
-              <div className="text-3xl font-display font-bold text-white">99.9%</div>
-              <div className="text-xs text-gray-500 font-mono tracking-widest uppercase">Bespoke Satisfaction</div>
-            </div>
-          </div>
-        </motion.div>
-      </div>
 
-      {/* Background Map Overlay */}
-      <div className="absolute inset-0 pointer-events-none opacity-5 z-0">
-        <svg className="w-full h-full" viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg">
-          <path d="M0,500 Q250,250 500,500 T1000,500" fill="none" stroke="currentColor" strokeWidth="0.5" />
-          <path d="M0,300 Q250,550 500,300 T1000,300" fill="none" stroke="currentColor" strokeWidth="0.5" />
-          <path d="M0,700 Q250,450 500,700 T1000,700" fill="none" stroke="currentColor" strokeWidth="0.5" />
-        </svg>
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-white tracking-tight leading-tight font-display drop-shadow-md">
+              Discover Extraordinary Trails <br className="hidden sm:inline" />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500">
+                & Bespoke Adventures
+              </span>
+            </h1>
+
+            <p className="text-slate-300 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">
+              Book certified trekking expeditions, weekend mountain escapes, and luxury custom tours guided by veteran mountaineers.
+            </p>
+          </motion.div>
+
+          {/* Interactive Filter Bar */}
+          <motion.form
+            initial={{ opacity: 0, y: 25 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.1 }}
+            onSubmit={handleFilterSubmit}
+            className="bg-white/95 backdrop-blur-md p-4 sm:p-5 rounded-3xl border border-slate-200/80 shadow-2xl text-slate-900 space-y-4"
+          >
+            {/* Quick Search Input & Title */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-3 border-b border-slate-200">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-700">
+                <MapPin size={16} className="text-primary" />
+                <span>Find Your Next Destination</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleReset}
+                className="text-xs text-slate-500 hover:text-primary flex items-center gap-1 transition-colors font-medium ml-auto sm:ml-0"
+              >
+                <RotateCcw size={13} />
+                <span>Reset Filters</span>
+              </button>
+            </div>
+
+            {/* 5 Filter Controls Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-left">
+              {/* 1. Destination Select */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold uppercase text-slate-600 tracking-wider flex items-center gap-1">
+                  <MapPin size={12} className="text-primary" /> Destination
+                </label>
+                <select
+                  value={filters.destination}
+                  onChange={(e) => handleChange('destination', e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-primary focus:bg-white transition-colors"
+                >
+                  <option value="all">All Destinations</option>
+                  <option value="Himalayas">Himalayas, India</option>
+                  <option value="Uttarakhand">Uttarakhand</option>
+                  <option value="Himachal">Himachal Pradesh</option>
+                  <option value="Ladakh">Leh & Ladakh</option>
+                  <option value="Goa">Goa & Coastal</option>
+                  <option value="Rajasthan">Rajasthan Heritage</option>
+                </select>
+              </div>
+
+              {/* 2. Price Range Slider */}
+              <div className="space-y-1">
+                <div className="flex justify-between items-center text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                  <span className="flex items-center gap-1"><DollarSign size={12} className="text-primary" /> Price</span>
+                  <span className="text-primary font-mono font-bold">${filters.maxPrice}</span>
+                </div>
+                <input
+                  type="range"
+                  min={100}
+                  max={3000}
+                  step={50}
+                  value={filters.maxPrice}
+                  onChange={(e) => handleChange('maxPrice', Number(e.target.value))}
+                  className="w-full accent-red-600 h-2 bg-slate-200 rounded-lg cursor-pointer my-2"
+                />
+              </div>
+
+              {/* 3. Group Size */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold uppercase text-slate-600 tracking-wider flex items-center gap-1">
+                  <Users size={12} className="text-primary" /> Group Size
+                </label>
+                <select
+                  value={filters.groupSize}
+                  onChange={(e) => handleChange('groupSize', e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-primary focus:bg-white transition-colors"
+                >
+                  <option value="all">Any Group Size</option>
+                  <option value="solo">Solo / Duo (1-2)</option>
+                  <option value="small">Small Group (3-6)</option>
+                  <option value="medium">Medium Group (7-12)</option>
+                  <option value="large">Large Group (12+)</option>
+                </select>
+              </div>
+
+              {/* 4. Duration */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold uppercase text-slate-600 tracking-wider flex items-center gap-1">
+                  <Clock size={12} className="text-primary" /> Duration
+                </label>
+                <select
+                  value={filters.duration}
+                  onChange={(e) => handleChange('duration', e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-primary focus:bg-white transition-colors"
+                >
+                  <option value="all">Any Duration</option>
+                  <option value="short">1 - 3 Days</option>
+                  <option value="medium">4 - 7 Days</option>
+                  <option value="long">8 - 14 Days</option>
+                  <option value="expedition">15+ Days</option>
+                </select>
+              </div>
+
+              {/* 5. Start Date Picker */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold uppercase text-slate-600 tracking-wider flex items-center gap-1">
+                  <Calendar size={12} className="text-primary" /> Start Date
+                </label>
+                <input
+                  type="date"
+                  value={filters.startDate}
+                  onChange={(e) => handleChange('startDate', e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-primary focus:bg-white transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* Filter Action Submit Row */}
+            <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
+              <div className="relative flex-1 w-full">
+                <input
+                  type="text"
+                  placeholder="Keyword search (e.g. Kedarkantha, Brahmatal, Kasol)..."
+                  value={quickKeyword}
+                  onChange={(e) => setQuickKeyword(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-4 pr-10 py-2.5 text-xs text-slate-900 font-medium focus:outline-none focus:border-primary focus:bg-white transition-colors"
+                />
+                <Search size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full sm:w-auto btn-luxury-primary py-2.5 px-8 text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-red-500/30 uppercase tracking-wider shrink-0"
+              >
+                <Search size={15} />
+                <span>Search Tours</span>
+              </button>
+            </div>
+          </motion.form>
+        </div>
       </div>
     </section>
   );
 };
 
 export default Hero;
-

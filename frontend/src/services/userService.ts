@@ -38,3 +38,18 @@ export const deleteUser = async (userId: string, token: string) => {
     throw error;
   }
 };
+
+export const makeMeAdmin = async (token: string) => {
+  try {
+    const response = await axios.post(
+      `${API_BASE_URL}/users/make-me-admin`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return response.data.data.user;
+  } catch (error) {
+    console.error('Error elevating account to admin:', error);
+    throw error;
+  }
+};
+

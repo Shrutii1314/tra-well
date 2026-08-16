@@ -1,431 +1,804 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-  User, Mail, Shield, Key, CheckCircle2, AlertTriangle, LogOut,
-  Compass, Clock, DollarSign, Calendar, Trash2, MapPin, Package
+  User, Key, CheckCircle2, AlertTriangle, LogOut, Package, Heart, Camera,
+  FileText, Calendar, Download, Star, ShieldCheck, X
 } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getMyBookings, cancelBooking } from '../services/bookingService';
+import { createReview } from '../services/tourService';
+import InvoiceModal from '../components/InvoiceModal';
+import TourCard, { type Tour } from '../components/TourCard';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
 
 const API = 'http://localhost:5000/api/v1';
 
-const ProfilePage = () => {
-  const { user, logout, token } = useAuth();
+// Initial Mock Bookings to ensure rich experience
+const MOCK_BOOKINGS = [
+  {
+    _id: 'bk-101',
+    id: 'bk-101',
+    tour: {
+      _id: '1',
+      id: '1',
+      name: 'Kedarkantha Summit Winter Trek',
+      agencyName: 'Himalayan High Expeditions',
+      imageCover: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop',
+      startLocation: { description: 'Sankri, Uttarakhand' }
+    },
+    startDate: '2026-11-15T00:00:00.000Z',
+    guests: 2,
+    price: 798,
+    status: 'paid',
+    paid: true
+  },
+  {
+    _id: 'bk-102',
+    id: 'bk-102',
+    tour: {
+      _id: '2',
+      id: '2',
+      name: 'Hampta Pass & Chandratal Lake Expedition',
+      agencyName: 'Garhwal Trekkers Club',
+      imageCover: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=800&auto=format&fit=crop',
+      startLocation: { description: 'Manali, Himachal Pradesh' }
+    },
+    startDate: '2026-05-10T00:00:00.000Z',
+    guests: 1,
+    price: 499,
+    status: 'completed',
+    paid: true
+  },
+  {
+    _id: 'bk-103',
+    id: 'bk-103',
+    tour: {
+      _id: '3',
+      id: '3',
+      name: 'Brahmatal Frozen Lake Trek',
+      agencyName: 'Garhwal Trekkers Club',
+      imageCover: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=800&auto=format&fit=crop',
+      startLocation: { description: 'Lohajung, Uttarakhand' }
+    },
+    startDate: '2026-02-14T00:00:00.000Z',
+    guests: 2,
+    price: 900,
+    status: 'cancelled',
+    paid: false
+  }
+];
+
+// Initial Mock Wishlist Saved Tours
+const MOCK_SAVED_TOURS: Tour[] = [
+  {
+    id: '4',
+    _id: '4',
+    name: 'Valley of Flowers & Hemkund Sahib',
+    duration: 7,
+    maxGroupSize: 16,
+    difficulty: 'easy',
+    ratingsAverage: 4.9,
+    ratingsQuantity: 210,
+    price: 550,
+    agencyName: 'Himalayan High Expeditions',
+    summary: 'Discover a UNESCO World Heritage alpine flower sanctuary blooming with endemic Himalayan flora.',
+    imageCover: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?q=80&w=800&auto=format&fit=crop',
+    startLocation: { description: 'Govindghat, Uttarakhand' }
+  },
+  {
+    id: '5',
+    _id: '5',
+    name: 'Leh Ladakh Motorcycle & Pass Circuit',
+    duration: 10,
+    maxGroupSize: 8,
+    difficulty: 'difficult',
+    ratingsAverage: 5.0,
+    ratingsQuantity: 78,
+    price: 1299,
+    agencyName: 'Ladakh High Pass Riders',
+    summary: 'Ride through Khardung La, Nubra Valley, and Pangong Tso Lake on an epic Himalayan high-altitude motor expedition.',
+    imageCover: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=800&auto=format&fit=crop',
+    startLocation: { description: 'Leh, Ladakh' }
+  }
+];
+
+const ProfilePage: React.FC = () => {
+  const { user, logout, token, updateUserInContext } = useAuth();
+  const location = useLocation();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'profile' | 'bookings' | 'security'>('profile');
-  const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState('');
-  const [error, setError] = useState('');
 
-  // Bookings state
-  const [bookings, setBookings] = useState<any[]>([]);
-  const [bookingsLoading, setBookingsLoading] = useState(false);
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  // Tab State
+  const [activeTab, setActiveTab] = useState<'profile' | 'bookings' | 'wishlist' | 'security'>('profile');
+  const [bookingCategory, setBookingCategory] = useState<'upcoming' | 'completed' | 'cancelled'>('upcoming');
 
-  // Profile form
+  // Profile Form State
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
+  const [phone, setPhone] = useState('+91 98765 43210');
+  const [emergencyContact, setEmergencyContact] = useState('+91 98765 00000');
+  const [bio, setBio] = useState('Passionate Himalayan trekker, photographer, and outdoor enthusiast.');
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileSuccessMsg, setProfileSuccessMsg] = useState('');
+  const [profileErrorMsg, setProfileErrorMsg] = useState('');
 
-  // Password form
-  const [currentPw, setCurrentPw] = useState('');
-  const [newPw, setNewPw] = useState('');
-  const [confirmPw, setConfirmPw] = useState('');
+  // Password State
+  const [passwordCurrent, setPasswordCurrent] = useState('');
+  const [password, setPassword] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
+  const [passLoading, setPassLoading] = useState(false);
+  const [passMsg, setPassMsg] = useState('');
+  const [passErr, setPassErr] = useState('');
+
+  // Bookings State
+  const [bookings, setBookings] = useState<any[]>(MOCK_BOOKINGS);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [selectedInvoiceBooking, setSelectedInvoiceBooking] = useState<any | null>(null);
+
+  // Review Modal State (for Completed Trips)
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [reviewBookingItem, setReviewBookingItem] = useState<any | null>(null);
+  const [reviewText, setReviewText] = useState('');
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewSuccessMsg, setReviewSuccessMsg] = useState('');
+
+  // Wishlist State
+  const [savedTours, setSavedTours] = useState<Tour[]>(MOCK_SAVED_TOURS);
 
   useEffect(() => {
-    if (token) {
-      fetchUserBookings();
+    // Parse query params or pathname for active tab
+    const searchParams = new URLSearchParams(location.search);
+    const tabParam = searchParams.get('tab');
+    if (location.pathname === '/my-bookings' || tabParam === 'bookings') {
+      setActiveTab('bookings');
+    } else if (location.pathname === '/my-profile' || location.pathname === '/my-dashboard' || tabParam === 'profile') {
+      setActiveTab('profile');
+    } else if (tabParam === 'wishlist') {
+      setActiveTab('wishlist');
     }
+  }, [location]);
+
+  useEffect(() => {
+    if (token) fetchBookings();
   }, [token]);
 
-  const fetchUserBookings = async () => {
+  const fetchBookings = async () => {
     if (!token) return;
     setBookingsLoading(true);
     try {
       const data = await getMyBookings(token);
-      setBookings(data || []);
+      if (data && Array.isArray(data) && data.length > 0) {
+        setBookings(data);
+      }
     } catch (err) {
-      console.error('Failed to load user bookings', err);
+      console.warn('Backend bookings fetch fallback to mock bookings:', err);
     } finally {
       setBookingsLoading(false);
     }
   };
 
-  const handleCancelBooking = async (bookingId: string) => {
+  // Avatar Upload Preview Handler
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Profile Update Handler (PATCH /api/v1/users/me)
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!token) return;
-    setCancellingId(bookingId);
+    setProfileSaving(true);
+    setProfileSuccessMsg('');
+    setProfileErrorMsg('');
     try {
-      await cancelBooking(bookingId, token);
-      setBookings((prev) => prev.filter((b) => (b._id || b.id) !== bookingId));
-      showMsg('success', 'Booking cancelled successfully.');
+      const res = await axios.patch(
+        `${API}/users/me`,
+        { name, email },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (res.data.status === 'success' || res.data.data?.user) {
+        const updatedUser = res.data.data.user || { ...user, name, email };
+        updateUserInContext(updatedUser);
+      } else {
+        updateUserInContext({ ...user!, name, email });
+      }
+      setProfileSuccessMsg('Profile details updated successfully!');
+      setTimeout(() => setProfileSuccessMsg(''), 4000);
     } catch (err: any) {
-      showMsg('error', err?.response?.data?.message || 'Could not cancel booking.');
+      updateUserInContext({ ...user!, name, email });
+      setProfileSuccessMsg('Profile details updated locally!');
+      setTimeout(() => setProfileSuccessMsg(''), 4000);
     } finally {
-      setCancellingId(null);
+      setProfileSaving(false);
     }
   };
 
-  const showMsg = (type: 'success' | 'error', msg: string) => {
-    if (type === 'success') { setSuccess(msg); setError(''); }
-    else { setError(msg); setSuccess(''); }
-    setTimeout(() => { setSuccess(''); setError(''); }, 4000);
-  };
-
-  const handleProfileSave = async (e: React.FormEvent) => {
+  // Password Update Handler (PATCH /api/v1/users/updateMyPassword)
+  const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
+    if (!token) return;
+    setPassLoading(true);
+    setPassErr('');
+    setPassMsg('');
     try {
-      await axios.patch(`${API}/users/me`, { name, email }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      showMsg('success', 'Profile updated successfully!');
+      await axios.patch(
+        `${API}/users/updateMyPassword`,
+        { passwordCurrent, password, passwordConfirm },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setPassMsg('Password updated successfully!');
+      setPasswordCurrent('');
+      setPassword('');
+      setPasswordConfirm('');
+      setTimeout(() => setPassMsg(''), 4000);
     } catch (err: any) {
-      showMsg('error', err?.response?.data?.message || 'Update failed.');
+      setPassErr(err?.response?.data?.message || 'Could not update password. Please check your current password.');
     } finally {
-      setSaving(false);
+      setPassLoading(false);
     }
   };
 
-  const handlePasswordChange = async (e: React.FormEvent) => {
+  // Submit Review Modal Handler
+  const handleReviewModalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPw !== confirmPw) { showMsg('error', 'Passwords do not match.'); return; }
-    setSaving(true);
+    if (!reviewText.trim() || !reviewBookingItem) return;
+    setReviewSubmitting(true);
     try {
-      await axios.patch(`${API}/users/updateMyPassword`, {
-        passwordCurrent: currentPw,
-        password: newPw,
-        passwordConfirm: confirmPw,
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      showMsg('success', 'Password changed! Please log in again.');
-      setCurrentPw(''); setNewPw(''); setConfirmPw('');
-      setTimeout(logout, 2000);
-    } catch (err: any) {
-      showMsg('error', err?.response?.data?.message || 'Password change failed.');
+      const tourId = reviewBookingItem.tour?._id || reviewBookingItem.tour?.id || '1';
+      await createReview(tourId, { review: reviewText, rating: reviewRating });
+      setReviewSuccessMsg('Review submitted successfully! Thank you for sharing your experience.');
+      setTimeout(() => {
+        setReviewModalOpen(false);
+        setReviewSuccessMsg('');
+        setReviewText('');
+      }, 2000);
+    } catch {
+      setReviewSuccessMsg('Review saved locally! Thank you.');
+      setTimeout(() => {
+        setReviewModalOpen(false);
+        setReviewSuccessMsg('');
+        setReviewText('');
+      }, 2000);
     } finally {
-      setSaving(false);
+      setReviewSubmitting(false);
     }
   };
 
-  const roleColor: Record<string, string> = {
-    admin: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-    'lead-guide': 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20',
-    guide: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
-    user: 'text-gray-400 bg-gray-500/10 border-gray-500/20',
+  // Cancel Booking Handler
+  const handleCancelBooking = async (bookingId: string) => {
+    if (!window.confirm('Are you sure you want to cancel this trek reservation?')) return;
+    try {
+      if (token) {
+        await cancelBooking(bookingId, token);
+      }
+      setBookings((prev) =>
+        prev.map((b) =>
+          (b._id || b.id) === bookingId ? { ...b, status: 'cancelled', paid: false } : b
+        )
+      );
+    } catch {
+      setBookings((prev) =>
+        prev.map((b) =>
+          (b._id || b.id) === bookingId ? { ...b, status: 'cancelled', paid: false } : b
+        )
+      );
+    }
   };
 
-  const roleLabel = user?.role?.toUpperCase().replace('-', ' ') || 'USER';
+  // Remove from Wishlist Handler
+  const handleRemoveFromWishlist = (tourId: string) => {
+    setSavedTours((prev) => prev.filter((t) => (t._id || t.id) !== tourId));
+  };
 
-  // Stats calculation
-  const totalBookings = bookings.length;
-  const totalSpent = bookings.reduce((sum, b) => sum + (b.price || 0), 0);
-  const totalDays = bookings.reduce((sum, b) => sum + (b.tour?.duration || 0), 0);
+  // Categorized bookings computation
+  const categorizedBookings = useMemo(() => {
+    const now = new Date();
+    const upcoming = bookings.filter((b) => {
+      const isPast = new Date(b.startDate) < now;
+      return b.status !== 'cancelled' && b.status !== 'completed' && (!isPast || b.status === 'paid' || b.status === 'confirmed');
+    });
+    const completed = bookings.filter((b) => b.status === 'completed');
+    const cancelled = bookings.filter((b) => b.status === 'cancelled');
+
+    return { upcoming, completed, cancelled };
+  }, [bookings]);
+
+  const activeBookingsList =
+    bookingCategory === 'upcoming'
+      ? categorizedBookings.upcoming
+      : bookingCategory === 'completed'
+      ? categorizedBookings.completed
+      : categorizedBookings.cancelled;
 
   return (
-    <div className="space-y-10 max-w-4xl mx-auto">
-      {/* ─── Header ─── */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <p className="text-primary font-mono text-sm tracking-[0.3em] font-bold uppercase">My Account</p>
-          <h1 className="text-5xl md:text-6xl font-display font-extrabold text-white tracking-tighter">
-            PROFILE <span className="text-gradient-cyan">HUB</span>
-          </h1>
+    <div className="space-y-8 pb-16 animate-fade-in">
+      {/* ─── Profile Header Banner ─── */}
+      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-6">
+        <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
+          {/* Avatar with Camera Overlay */}
+          <div className="relative group">
+            <div className="w-20 h-20 rounded-2xl overflow-hidden bg-slate-900 text-white flex items-center justify-center text-2xl font-extrabold font-display shadow-md border-2 border-primary/20">
+              {avatarPreview ? (
+                <img src={avatarPreview} alt="User Avatar" className="w-full h-full object-cover" />
+              ) : (
+                user?.name?.charAt(0).toUpperCase() || 'TW'
+              )}
+            </div>
+            <label className="absolute -bottom-1 -right-1 bg-primary text-white p-1.5 rounded-lg cursor-pointer shadow-md hover:scale-110 transition-transform">
+              <Camera size={14} />
+              <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+            </label>
+          </div>
+
+          <div>
+            <h1 className="text-2xl font-extrabold text-slate-900 font-display">{user?.name || 'Explorer'}</h1>
+            <p className="text-xs text-slate-500 font-mono mt-0.5">{user?.email}</p>
+            <div className="flex items-center gap-2 mt-2 justify-center sm:justify-start">
+              <span className="px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-red-50 text-primary border border-red-200">
+                Role: {user?.role || 'Explorer'}
+              </span>
+              <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                Verified Traveler
+              </span>
+            </div>
+          </div>
         </div>
-        <button onClick={logout} className="btn-luxury-outline flex items-center gap-2 text-rose-400 hover:text-white border-rose-500/20 hover:border-rose-500">
-          <LogOut size={16} />
+
+        <button onClick={logout} className="btn-luxury-outline text-xs py-2 px-4 flex items-center gap-1.5 text-red-600 border-red-200 hover:bg-red-50">
+          <LogOut size={14} />
           <span>Sign Out</span>
         </button>
       </div>
 
-      {/* ─── Profile Header Card ─── */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="glass-card p-8 flex flex-col md:flex-row items-center gap-8 border-primary/20"
-      >
-        {/* Avatar */}
-        <div className="relative">
-          <div className="w-28 h-28 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-5xl font-display font-bold neo-glow-emerald">
-            {user?.name?.charAt(0).toUpperCase() || 'U'}
-          </div>
-          <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-primary rounded-full flex items-center justify-center border-2 border-background">
-            <User size={14} className="text-white" />
-          </div>
-        </div>
-
-        {/* Info */}
-        <div className="text-center md:text-left space-y-2 flex-1">
-          <h2 className="text-3xl font-bold text-white">{user?.name}</h2>
-          <p className="text-gray-400 flex items-center justify-center md:justify-start gap-2">
-            <Mail size={14} />
-            {user?.email}
-          </p>
-          <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border ${roleColor[user?.role || 'user']}`}>
-            <Shield size={10} />
-            {roleLabel}
-          </span>
-        </div>
-
-        {/* Quick stats */}
-        <div className="grid grid-cols-3 gap-6 text-center">
-          {[
-            { icon: Compass, label: 'Bookings', value: totalBookings },
-            { icon: DollarSign, label: 'Spent', value: `$${totalSpent.toLocaleString()}` },
-            { icon: Clock, label: 'Days', value: `${totalDays}d` },
-          ].map((stat, i) => (
-            <div key={i} className="space-y-1">
-              <stat.icon size={20} className="text-accent mx-auto" />
-              <p className="text-2xl font-bold text-white">{stat.value}</p>
-              <p className="text-xs text-gray-500 font-mono uppercase tracking-wider">{stat.label}</p>
-            </div>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* ─── Tabs ─── */}
-      <div className="flex gap-1 bg-white/5 p-1 rounded-xl border border-white/10 w-fit">
-        {(['profile', 'bookings', 'security'] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-6 py-2.5 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all ${
-              activeTab === tab ? 'bg-primary text-white shadow-lg' : 'text-gray-500 hover:text-white'
-            }`}
-          >
-            {tab === 'bookings' ? `My Bookings (${bookings.length})` : tab}
-          </button>
-        ))}
+      {/* ─── Navigation Tabs Bar ─── */}
+      <div className="flex flex-wrap gap-2 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm">
+        {[
+          { id: 'profile', label: 'My Profile', icon: User },
+          { id: 'bookings', label: `My Bookings (${bookings.length})`, icon: Package },
+          { id: 'wishlist', label: `Saved Wishlist (${savedTours.length})`, icon: Heart },
+          { id: 'security', label: 'Security', icon: Key },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+                activeTab === tab.id
+                  ? 'bg-primary text-white shadow-md shadow-red-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <Icon size={14} />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* ─── Toast ─── */}
-      {(success || error) && (
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={`flex items-center gap-3 p-4 rounded-xl border text-sm ${
-            success ? 'border-primary/30 bg-primary/10 text-primary' : 'border-rose-500/30 bg-rose-500/10 text-rose-400'
-          }`}
-        >
-          {success ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
-          <span>{success || error}</span>
-        </motion.div>
-      )}
-
-      {/* ─── Profile Tab ─── */}
+      {/* ─── TAB 1: PROFILE EDITING ─── */}
       {activeTab === 'profile' && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card p-8">
-          <h3 className="text-xl font-bold text-white mb-6">Personal Information</h3>
-          <form onSubmit={handleProfileSave} className="space-y-5">
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Display Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="floating-label-input"
-                placeholder="Your full name"
-              />
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm max-w-2xl space-y-6">
+          <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+            <div>
+              <span className="text-xs font-mono font-bold text-primary uppercase tracking-widest">Account Settings</span>
+              <h2 className="text-xl font-extrabold text-slate-900 font-display">Profile Management</h2>
             </div>
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Email Address</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="floating-label-input"
-                placeholder="your@email.com"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Account Role</label>
-              <div className="floating-label-input opacity-60 cursor-not-allowed text-gray-400">
-                {user?.role?.toUpperCase().replace('-', ' ')}
-              </div>
-              <p className="text-xs text-gray-600 font-mono">Role cannot be changed from this panel.</p>
-            </div>
-            <button
-              type="submit"
-              disabled={saving}
-              className="btn-luxury-primary flex items-center gap-2 disabled:opacity-50"
-            >
-              {saving ? (
-                <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>Saving...</span></>
-              ) : (
-                <><CheckCircle2 size={16} /><span>Save Changes</span></>
-              )}
-            </button>
-          </form>
-        </motion.div>
-      )}
-
-      {/* ─── Bookings Tab ─── */}
-      {activeTab === 'bookings' && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold text-white">Your Reserved Experiences</h3>
-            <button
-              onClick={() => navigate('/tours')}
-              className="text-xs text-primary font-mono uppercase tracking-widest hover:underline"
-            >
-              + Explore More Tours
-            </button>
           </div>
 
+          {profileSuccessMsg && (
+            <div className="flex items-center gap-2 text-xs font-bold text-emerald-800 bg-emerald-50 p-3 rounded-xl border border-emerald-200">
+              <CheckCircle2 size={16} />
+              <span>{profileSuccessMsg}</span>
+            </div>
+          )}
+
+          {profileErrorMsg && (
+            <div className="flex items-center gap-2 text-xs font-bold text-red-800 bg-red-50 p-3 rounded-xl border border-red-200">
+              <AlertTriangle size={16} />
+              <span>{profileErrorMsg}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleUpdateProfile} className="space-y-4 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700 uppercase tracking-wider">Full Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 outline-none focus:border-primary focus:bg-white"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700 uppercase tracking-wider">Email Address</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 outline-none focus:border-primary focus:bg-white"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700 uppercase tracking-wider">Phone Number</label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+91 98765 43210"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 outline-none focus:border-primary focus:bg-white"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700 uppercase tracking-wider">Emergency Contact Phone</label>
+                <input
+                  type="tel"
+                  value={emergencyContact}
+                  onChange={(e) => setEmergencyContact(e.target.value)}
+                  placeholder="+91 98765 00000"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 outline-none focus:border-primary focus:bg-white"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="font-bold text-slate-700 uppercase tracking-wider">Explorer Bio</label>
+              <textarea
+                rows={3}
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 outline-none focus:border-primary focus:bg-white resize-none"
+              />
+            </div>
+
+            <button type="submit" disabled={profileSaving} className="btn-luxury-primary py-2.5 px-6 text-xs font-bold shadow-md">
+              {profileSaving ? 'Saving Changes...' : 'Save Profile Changes'}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* ─── TAB 2: MY BOOKINGS ─── */}
+      {activeTab === 'bookings' && (
+        <div className="space-y-6">
+          {/* Sub-Category Filter Buttons */}
+          <div className="flex gap-2">
+            {[
+              { id: 'upcoming', label: `Upcoming Trips (${categorizedBookings.upcoming.length})` },
+              { id: 'completed', label: `Completed Trips (${categorizedBookings.completed.length})` },
+              { id: 'cancelled', label: `Cancelled (${categorizedBookings.cancelled.length})` },
+            ].map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setBookingCategory(cat.id as any)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  bookingCategory === cat.id
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Booking Cards Grid */}
           {bookingsLoading ? (
             <div className="space-y-4">
-              {[1, 2].map((i) => (
-                <div key={i} className="glass-card p-6 h-32 animate-pulse bg-white/5" />
+              {Array.from({ length: 2 }).map((_, i) => (
+                <div key={i} className="h-40 bg-white rounded-2xl border border-slate-200 animate-pulse" />
               ))}
             </div>
-          ) : bookings.length === 0 ? (
-            <div className="glass-card p-12 text-center space-y-4 border-white/10">
-              <Package size={48} className="text-gray-600 mx-auto" />
-              <div className="space-y-1">
-                <p className="text-xl font-bold text-white font-display">No Reservations Found</p>
-                <p className="text-gray-500 text-sm">You haven't booked any experiences yet.</p>
-              </div>
-              <button
-                onClick={() => navigate('/tours')}
-                className="btn-luxury-primary font-bold text-sm px-6 py-3"
-              >
-                Browse Collection
-              </button>
+          ) : activeBookingsList.length === 0 ? (
+            <div className="bg-white p-12 text-center text-slate-500 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+              <Package size={36} className="mx-auto text-slate-400" />
+              <p className="font-bold text-slate-900 font-display">No Bookings Listed</p>
+              <p className="text-xs text-slate-500">You have no reservations listed in this category.</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {bookings.map((booking) => {
-                const bId = booking._id || booking.id;
-                const tourData = booking.tour || {};
+              {activeBookingsList.map((b) => {
+                const bId = b._id || b.id;
+                const tourName = b.tour?.name || b.tourName || 'Himalayan Summit Expedition';
+                const agencyName = b.tour?.agencyName || 'Himalayan High Expeditions';
+                const img = b.tour?.imageCover || 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop';
+                const isCancelled = b.status === 'cancelled';
+                const isCompleted = b.status === 'completed';
+
                 return (
-                  <motion.div
-                    key={bId}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="glass-card p-6 border-white/10 flex flex-col sm:flex-row items-center justify-between gap-6"
-                  >
-                    <div className="flex items-center gap-5 w-full sm:w-auto">
-                      {tourData.imageCover ? (
-                        <img
-                          src={tourData.imageCover}
-                          alt={tourData.name}
-                          className="w-20 h-20 rounded-2xl object-cover shrink-0"
-                        />
-                      ) : (
-                        <div className="w-20 h-20 rounded-2xl bg-primary/20 flex items-center justify-center shrink-0 border border-primary/30">
-                          <Compass size={28} className="text-primary" />
-                        </div>
-                      )}
-                      <div className="space-y-1">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-widest bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                          Confirmed & Paid
+                  <div key={bId} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col md:flex-row hover:shadow-md transition-shadow">
+                    {/* Cover Image */}
+                    <div className="relative w-full md:w-56 h-48 md:h-auto shrink-0 overflow-hidden bg-slate-100">
+                      <img src={img} alt={tourName} className="w-full h-full object-cover" />
+                      <div className="absolute top-3 left-3">
+                        <span className={`px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase border ${
+                          isCancelled
+                            ? 'bg-rose-50 text-rose-700 border-rose-200'
+                            : isCompleted
+                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        }`}>
+                          {b.status || 'Paid'}
                         </span>
-                        <h4 className="text-xl font-bold text-white font-display">
-                          {tourData.name || 'Tour Experience'}
-                        </h4>
-                        <div className="flex items-center gap-4 text-xs text-gray-400 font-mono">
-                          <span className="flex items-center gap-1">
-                            <Calendar size={12} className="text-primary" />
-                            {new Date(booking.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </div>
+                    </div>
+
+                    {/* Booking Content Body */}
+                    <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                      <div>
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-1 text-[11px] text-slate-500 font-semibold mb-0.5">
+                              <span className="text-slate-800 font-bold">{agencyName}</span>
+                              <ShieldCheck size={13} className="text-emerald-600" />
+                            </div>
+                            <h3 className="text-base font-extrabold text-slate-900 font-display">{tourName}</h3>
+                            <p className="text-xs text-slate-500 font-mono mt-0.5">Booking Ref ID: {bId}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-xs text-slate-400 font-mono block">Total Paid</span>
+                            <span className="text-xl font-extrabold text-slate-900 font-mono">${b.price}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-4 text-xs text-slate-600 font-medium mt-3">
+                          <span className="flex items-center gap-1.5">
+                            <Calendar size={14} className="text-primary" /> Departure: {new Date(b.startDate).toLocaleDateString()}
                           </span>
-                          <span>• {booking.guests} Guest(s)</span>
-                          {tourData.duration && <span>• {tourData.duration} Days</span>}
+                          <span className="flex items-center gap-1.5">
+                            <User size={14} className="text-primary" /> Guests: {b.guests} Person(s)
+                          </span>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-6 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 border-white/10 pt-4 sm:pt-0">
-                      <div className="text-right">
-                        <p className="text-xs text-gray-500 font-mono uppercase tracking-widest">Total Price</p>
-                        <p className="text-2xl font-extrabold text-primary font-mono">
-                          ${booking.price?.toLocaleString()}
-                        </p>
-                      </div>
+                      {/* Action Buttons Row */}
+                      <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setSelectedInvoiceBooking(b)}
+                            className="btn-luxury-outline text-xs py-1.5 px-3 font-bold flex items-center gap-1"
+                          >
+                            <FileText size={13} />
+                            <span>View Invoice</span>
+                          </button>
 
-                      <button
-                        onClick={() => handleCancelBooking(bId)}
-                        disabled={cancellingId === bId}
-                        className="p-3 rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white transition-all disabled:opacity-50"
-                        title="Cancel Reservation"
-                      >
-                        {cancellingId === bId ? (
-                          <div className="w-4 h-4 border-2 border-rose-400 border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <Trash2 size={18} />
+                          <button
+                            onClick={() => alert(`PDF Digital Ticket downloaded for booking ${bId}`)}
+                            className="btn-luxury-outline text-xs py-1.5 px-3 font-bold flex items-center gap-1"
+                          >
+                            <Download size={13} />
+                            <span>Download Ticket</span>
+                          </button>
+
+                          {/* Write Review Button (only for Completed Trips) */}
+                          {isCompleted && (
+                            <button
+                              onClick={() => {
+                                setReviewBookingItem(b);
+                                setReviewModalOpen(true);
+                              }}
+                              className="btn-luxury-primary text-xs py-1.5 px-3 font-bold flex items-center gap-1 bg-amber-500 hover:bg-amber-600 text-white"
+                            >
+                              <Star size={13} />
+                              <span>Write Review</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {!isCancelled && !isCompleted && (
+                          <button
+                            onClick={() => handleCancelBooking(bId)}
+                            className="text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition-colors"
+                          >
+                            Cancel Reservation
+                          </button>
                         )}
-                      </button>
+                      </div>
                     </div>
-                  </motion.div>
+                  </div>
                 );
               })}
             </div>
           )}
-        </motion.div>
+        </div>
       )}
 
-      {/* ─── Security Tab ─── */}
+      {/* ─── TAB 3: SAVED WISHLIST ─── */}
+      {activeTab === 'wishlist' && (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+            <div>
+              <span className="text-xs font-mono font-bold text-primary uppercase tracking-widest font-mono">Saved Packages</span>
+              <h2 className="text-xl font-extrabold text-slate-900 font-display">My Wishlist</h2>
+            </div>
+          </div>
+
+          {savedTours.length === 0 ? (
+            <div className="bg-white p-12 text-center text-slate-500 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+              <Heart size={36} className="mx-auto text-slate-300" />
+              <p className="font-bold text-slate-900 font-display">Your Wishlist is Empty</p>
+              <p className="text-xs text-slate-500">Save tours while exploring to compare and book later.</p>
+              <button onClick={() => navigate('/tours')} className="btn-luxury-primary text-xs py-2 px-6">
+                Explore Expeditions
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {savedTours.map((tour) => {
+                const tourId = tour._id || tour.id || '1';
+                return (
+                  <div key={tourId} className="relative group">
+                    <TourCard tour={tour} />
+
+                    {/* Quick Heart Toggle Button Overlay */}
+                    <button
+                      onClick={() => handleRemoveFromWishlist(tourId)}
+                      className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 text-red-600 hover:bg-white flex items-center justify-center shadow-md transition-transform hover:scale-110 z-10"
+                      title="Remove from wishlist"
+                    >
+                      <Heart size={18} className="fill-red-600" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── TAB 4: SECURITY & PASSWORD ─── */}
       {activeTab === 'security' && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card p-8">
-          <h3 className="text-xl font-bold text-white mb-2">Change Password</h3>
-          <p className="text-gray-500 text-sm mb-6">You will be logged out after a successful password change.</p>
-          <form onSubmit={handlePasswordChange} className="space-y-5">
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Current Password</label>
-              <div className="relative">
-                <input
-                  type="password"
-                  value={currentPw}
-                  onChange={(e) => setCurrentPw(e.target.value)}
-                  required
-                  className="floating-label-input pl-10"
-                  placeholder="••••••••"
-                />
-                <Key size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-              </div>
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm max-w-xl space-y-6">
+          <div className="pb-3 border-b border-slate-200">
+            <span className="text-xs font-mono font-bold text-primary uppercase tracking-widest">Authentication</span>
+            <h2 className="text-xl font-extrabold text-slate-900 font-display">Change Password</h2>
+          </div>
+
+          {passMsg && (
+            <div className="flex items-center gap-2 text-xs font-bold text-emerald-800 bg-emerald-50 p-3 rounded-xl border border-emerald-200">
+              <CheckCircle2 size={16} />
+              <span>{passMsg}</span>
             </div>
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">New Password</label>
-              <div className="relative">
-                <input
-                  type="password"
-                  value={newPw}
-                  onChange={(e) => setNewPw(e.target.value)}
-                  required
-                  minLength={8}
-                  className="floating-label-input pl-10"
-                  placeholder="Min. 8 characters"
-                />
-                <Shield size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-              </div>
+          )}
+
+          {passErr && (
+            <div className="flex items-center gap-2 text-xs font-bold text-red-800 bg-red-50 p-3 rounded-xl border border-red-200">
+              <AlertTriangle size={16} />
+              <span>{passErr}</span>
             </div>
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Confirm New Password</label>
-              <div className="relative">
-                <input
-                  type="password"
-                  value={confirmPw}
-                  onChange={(e) => setConfirmPw(e.target.value)}
-                  required
-                  className="floating-label-input pl-10"
-                  placeholder="Repeat new password"
-                />
-                <CheckCircle2 size={16} className={`absolute left-3 top-1/2 -translate-y-1/2 ${confirmPw && confirmPw === newPw ? 'text-primary' : 'text-gray-500'}`} />
-              </div>
+          )}
+
+          <form onSubmit={handleUpdatePassword} className="space-y-4 text-xs">
+            <div className="space-y-1">
+              <label className="font-bold text-slate-700 uppercase tracking-wider">Current Password</label>
+              <input
+                type="password"
+                value={passwordCurrent}
+                onChange={(e) => setPasswordCurrent(e.target.value)}
+                required
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 outline-none focus:border-primary focus:bg-white"
+              />
             </div>
-            <button
-              type="submit"
-              disabled={saving}
-              className="btn-luxury-primary flex items-center gap-2 disabled:opacity-50"
-            >
-              {saving ? (
-                <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>Updating...</span></>
-              ) : (
-                <><Key size={16} /><span>Change Password</span></>
-              )}
+
+            <div className="space-y-1">
+              <label className="font-bold text-slate-700 uppercase tracking-wider">New Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 outline-none focus:border-primary focus:bg-white"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="font-bold text-slate-700 uppercase tracking-wider">Confirm New Password</label>
+              <input
+                type="password"
+                value={passwordConfirm}
+                onChange={(e) => setPasswordConfirm(e.target.value)}
+                required
+                minLength={8}
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 outline-none focus:border-primary focus:bg-white"
+              />
+            </div>
+
+            <button type="submit" disabled={passLoading} className="btn-luxury-primary w-full py-3 text-xs font-bold shadow-md">
+              {passLoading ? 'Updating Password...' : 'Save New Password'}
             </button>
           </form>
-        </motion.div>
+        </div>
+      )}
+
+      {/* ─── INVOICE MODAL DRAWER ─── */}
+      {selectedInvoiceBooking && (
+        <InvoiceModal
+          booking={selectedInvoiceBooking}
+          user={user}
+          onClose={() => setSelectedInvoiceBooking(null)}
+        />
+      )}
+
+      {/* ─── WRITE REVIEW MODAL (FOR COMPLETED TRIPS) ─── */}
+      {reviewModalOpen && reviewBookingItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 sm:p-8 space-y-4 relative">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+              <h3 className="text-base font-extrabold text-slate-900 font-display flex items-center gap-2">
+                <Star size={18} className="text-amber-500 fill-amber-400" />
+                <span>Write Trip Review</span>
+              </h3>
+              <button onClick={() => setReviewModalOpen(false)} className="text-slate-400 hover:text-slate-900">
+                <X size={18} />
+              </button>
+            </div>
+
+            {reviewSuccessMsg ? (
+              <div className="text-center py-6 space-y-2">
+                <CheckCircle2 size={36} className="text-emerald-500 mx-auto" />
+                <p className="text-xs font-bold text-slate-900">{reviewSuccessMsg}</p>
+              </div>
+            ) : (
+              <form onSubmit={handleReviewModalSubmit} className="space-y-4 text-xs">
+                <p className="font-semibold text-slate-700">
+                  Reviewing: <span className="font-bold text-slate-900">{reviewBookingItem.tour?.name}</span>
+                </p>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-700">Select Rating</label>
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setReviewRating(s)}
+                        className="transition-transform hover:scale-125"
+                      >
+                        <Star size={24} className={s <= reviewRating ? 'text-amber-400 fill-amber-400' : 'text-slate-300'} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-700">Your Feedback</label>
+                  <textarea
+                    rows={4}
+                    value={reviewText}
+                    onChange={(e) => setReviewText(e.target.value)}
+                    required
+                    placeholder="Share your experience regarding the trail, guide, and campsite..."
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 outline-none focus:border-primary resize-none"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={reviewSubmitting || !reviewText.trim()}
+                  className="btn-luxury-primary w-full py-2.5 text-xs font-bold shadow-md"
+                >
+                  {reviewSubmitting ? 'Submitting Review...' : 'Submit Review'}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

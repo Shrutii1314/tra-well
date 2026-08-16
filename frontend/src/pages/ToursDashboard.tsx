@@ -1,31 +1,44 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Filter, Grid, List as ListIcon, Search, X, SlidersHorizontal, ChevronDown } from 'lucide-react';
+import { Grid, List as ListIcon, Search, X, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import TourCard from '../components/TourCard';
-import GeospatialHUD from '../components/GeospatialHUD';
-import { getTours, getToursWithin } from '../services/tourService';
+import { getTours } from '../services/tourService';
+import { useSearchParams } from 'react-router-dom';
 
 type SortOption = 'price-asc' | 'price-desc' | 'rating-desc' | 'duration-asc';
 type ViewMode = 'grid' | 'list';
+
+const CATEGORY_TABS = [
+  'All Treks & Trips',
+  'Upcoming Treks',
+  'Weekend Treks',
+  'Backpacking Trips',
+  'Bike Tours',
+  'Camping Tours',
+  'Customized Expeditions'
+];
 
 const DIFFICULTY_OPTIONS = ['All', 'easy', 'medium', 'difficult'];
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'rating-desc', label: 'Top Rated' },
   { value: 'price-asc', label: 'Price: Low → High' },
   { value: 'price-desc', label: 'Price: High → Low' },
-  { value: 'duration-asc', label: 'Shortest First' },
+  { value: 'duration-asc', label: 'Shortest Duration' },
 ];
 
 const ToursDashboard = () => {
+  const [searchParams] = useSearchParams();
+  const initialQuery = searchParams.get('search') || '';
+
   const [loading, setLoading] = useState(true);
   const [allTours, setAllTours] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
+  const [selectedCategoryTab, setSelectedCategoryTab] = useState('All Treks & Trips');
   const [difficulty, setDifficulty] = useState('All');
   const [sort, setSort] = useState<SortOption>('rating-desc');
   const [maxPrice, setMaxPrice] = useState(10000);
   const [filterOpen, setFilterOpen] = useState(false);
-  const [geoActive, setGeoActive] = useState(false);
 
   useEffect(() => {
     fetchTours();
@@ -33,25 +46,11 @@ const ToursDashboard = () => {
 
   const fetchTours = async () => {
     setLoading(true);
-    setGeoActive(false);
     try {
       const data = await getTours();
       setAllTours(data || []);
     } catch (error) {
       console.error('Failed to fetch tours:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGeospatialSearch = async (distance: number, lat: string, lng: string) => {
-    setLoading(true);
-    try {
-      const data = await getToursWithin(distance, `${lat},${lng}`, 'mi');
-      setAllTours(data || []);
-      setGeoActive(true);
-    } catch (error) {
-      console.error('Geospatial search failed:', error);
     } finally {
       setLoading(false);
     }
@@ -81,106 +80,112 @@ const ToursDashboard = () => {
       if (sort === 'price-asc') return (a.price || 0) - (b.price || 0);
       if (sort === 'price-desc') return (b.price || 0) - (a.price || 0);
       if (sort === 'duration-asc') return (a.duration || 0) - (b.duration || 0);
-      return (b.ratingsAverage || 0) - (a.ratingsAverage || 0); // rating-desc default
+      return (b.ratingsAverage || 0) - (a.ratingsAverage || 0);
     });
 
     return result;
   }, [allTours, searchQuery, difficulty, sort, maxPrice]);
 
-  const SkeletonCard = () => (
-    <div className="glass-card overflow-hidden h-[450px]">
-      <div className="h-64 bg-white/5 animate-pulse"></div>
-      <div className="p-6 space-y-4">
-        <div className="h-6 w-2/3 bg-white/5 rounded animate-pulse"></div>
-        <div className="h-4 w-full bg-white/5 rounded animate-pulse"></div>
-        <div className="h-4 w-5/6 bg-white/5 rounded animate-pulse"></div>
-        <div className="pt-6 flex justify-between">
-          <div className="h-8 w-1/3 bg-white/5 rounded animate-pulse"></div>
-          <div className="h-8 w-1/4 bg-white/5 rounded animate-pulse"></div>
-        </div>
-      </div>
-    </div>
-  );
-
   const activeFiltersCount = [difficulty !== 'All', maxPrice < 10000].filter(Boolean).length;
 
   return (
-    <div className="space-y-10">
-      {/* ─── Header ─── */}
+    <div className="space-y-8 pb-12">
+      {/* Category Scrollable Sub-Nav Bar (Light Theme) */}
+      <div className="bg-white p-2.5 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="category-tabs-nav">
+          {CATEGORY_TABS.map((tab, idx) => (
+            <button
+              key={idx}
+              onClick={() => setSelectedCategoryTab(tab)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                selectedCategoryTab === tab
+                  ? 'bg-primary text-white shadow-md shadow-red-500/30'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Page Title & Controls */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="space-y-2">
-          <p className="text-primary font-mono text-sm tracking-[0.3em] font-bold uppercase">Discover Curated Journeys</p>
-          <h1 className="text-5xl md:text-6xl font-display font-extrabold text-white tracking-tighter">
-            TOUR <span className="text-gradient-cyan">COLLECTION</span>
+        <div>
+          <span className="text-primary font-mono text-xs uppercase font-bold tracking-wider">Adventure Catalog</span>
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight font-display">
+            {selectedCategoryTab}
           </h1>
-          <p className="text-gray-500 text-sm">
-            {loading ? 'Loading experiences...' : `${filteredTours.length} experiences found`}
-            {geoActive && <span className="text-accent ml-2 font-mono text-xs">[RADAR MODE]</span>}
+          <p className="text-slate-500 text-xs sm:text-sm mt-1">
+            {loading ? 'Searching expeditions...' : `Showing ${filteredTours.length} verified adventure packages`}
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          {(geoActive || activeFiltersCount > 0 || searchQuery) && (
+          {(activeFiltersCount > 0 || searchQuery) && (
             <button
               onClick={() => { fetchTours(); setSearchQuery(''); setDifficulty('All'); setMaxPrice(10000); setSort('rating-desc'); }}
-              className="btn-luxury-outline flex items-center gap-2 text-sm"
+              className="btn-luxury-outline py-2 px-3 text-xs flex items-center gap-1.5"
             >
-              <X size={16} />
-              <span>Clear All</span>
+              <X size={14} />
+              <span>Reset</span>
             </button>
           )}
+
           <button
             onClick={() => setFilterOpen(!filterOpen)}
-            className={`btn-luxury-outline flex items-center gap-2 relative ${filterOpen ? 'border-primary/50 text-primary' : ''}`}
+            className={`btn-luxury-outline py-2 px-4 text-xs flex items-center gap-2 relative ${filterOpen ? 'border-primary text-primary bg-red-50' : ''}`}
           >
-            <SlidersHorizontal size={18} />
-            <span>Filter</span>
+            <SlidersHorizontal size={14} />
+            <span>Filters</span>
             {activeFiltersCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-primary rounded-full text-xs flex items-center justify-center text-white font-bold">
+              <span className="w-4 h-4 bg-primary text-white rounded-full text-[10px] flex items-center justify-center font-bold">
                 {activeFiltersCount}
               </span>
             )}
           </button>
-          <div className="bg-white/5 p-1 rounded-xl flex border border-white/10">
+
+          <div className="bg-white p-1 flex border border-slate-200 rounded-xl shadow-sm">
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-primary text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}
+              className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-primary text-white shadow-md' : 'text-slate-500 hover:text-slate-900'}`}
+              title="Grid View"
             >
-              <Grid size={18} />
+              <Grid size={16} />
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-primary text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}
+              className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-primary text-white shadow-md' : 'text-slate-500 hover:text-slate-900'}`}
+              title="List View"
             >
-              <ListIcon size={18} />
+              <ListIcon size={16} />
             </button>
           </div>
         </div>
       </div>
 
-      {/* ─── Search & Filter Bar ─── */}
+      {/* Search Input Bar */}
       <div className="space-y-4">
-        {/* Search */}
         <div className="relative">
-          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search tours by name, location, or description..."
-            className="floating-label-input pl-12 pr-4 h-12"
+            placeholder="Search by trek name, mountain pass, or location..."
+            className="floating-label-input pl-11 pr-10 py-3 text-sm shadow-sm"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-900"
             >
               <X size={16} />
             </button>
           )}
         </div>
 
-        {/* Expanded Filter Panel */}
+        {/* Filter Expand Panel */}
         <AnimatePresence>
           {filterOpen && (
             <motion.div
@@ -189,10 +194,9 @@ const ToursDashboard = () => {
               exit={{ opacity: 0, height: 0 }}
               className="overflow-hidden"
             >
-              <div className="hud-panel grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Difficulty Filter */}
-                <div className="space-y-3">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Difficulty</label>
+              <div className="bg-white p-6 rounded-2xl grid grid-cols-1 md:grid-cols-3 gap-6 border border-slate-200 shadow-sm">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Trek Difficulty</label>
                   <div className="flex flex-wrap gap-2">
                     {DIFFICULTY_OPTIONS.map((opt) => (
                       <button
@@ -200,8 +204,8 @@ const ToursDashboard = () => {
                         onClick={() => setDifficulty(opt)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider border transition-all ${
                           difficulty === opt
-                            ? 'bg-primary text-white border-primary'
-                            : 'border-white/10 text-gray-400 hover:border-white/30 hover:text-white'
+                            ? 'bg-primary text-white border-primary shadow-sm'
+                            : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900'
                         }`}
                       >
                         {opt}
@@ -210,10 +214,9 @@ const ToursDashboard = () => {
                   </div>
                 </div>
 
-                {/* Price Filter */}
-                <div className="space-y-3">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                    Max Price: <span className="text-white">${maxPrice.toLocaleString()}</span>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Max Price: <span className="text-slate-900 font-mono">${maxPrice.toLocaleString()}</span>
                   </label>
                   <input
                     type="range"
@@ -224,28 +227,27 @@ const ToursDashboard = () => {
                     onChange={(e) => setMaxPrice(Number(e.target.value))}
                     className="w-full accent-primary cursor-pointer"
                   />
-                  <div className="flex justify-between text-xs text-gray-600 font-mono">
+                  <div className="flex justify-between text-[10px] text-slate-400 font-mono">
                     <span>$100</span>
                     <span>$10,000</span>
                   </div>
                 </div>
 
-                {/* Sort */}
-                <div className="space-y-3">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Sort By</label>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Sort Packages</label>
                   <div className="relative">
                     <select
                       value={sort}
                       onChange={(e) => setSort(e.target.value as SortOption)}
-                      className="floating-label-input appearance-none pr-8 cursor-pointer"
+                      className="floating-label-input appearance-none pr-8 cursor-pointer text-xs"
                     >
                       {SORT_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value} className="bg-surface">
+                        <option key={opt.value} value={opt.value}>
                           {opt.label}
                         </option>
                       ))}
                     </select>
-                    <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   </div>
                 </div>
               </div>
@@ -254,69 +256,34 @@ const ToursDashboard = () => {
         </AnimatePresence>
       </div>
 
-      {/* ─── Geospatial HUD ─── */}
-      <GeospatialHUD onSearch={handleGeospatialSearch} />
-
-      {/* ─── Sort pills (quick access) ─── */}
-      <div className="flex gap-2 flex-wrap">
-        {SORT_OPTIONS.map((opt) => (
-          <button
-            key={opt.value}
-            onClick={() => setSort(opt.value)}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold font-mono uppercase tracking-wider border transition-all ${
-              sort === opt.value
-                ? 'bg-primary/20 text-primary border-primary/40'
-                : 'border-white/10 text-gray-500 hover:border-white/20 hover:text-gray-300'
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ─── Tour Grid ─── */}
-      <div className={`grid gap-8 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
+      {/* Tour Grid */}
+      <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
         {loading ? (
           Array.from({ length: 6 }).map((_, i) => (
-            <motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.08 }}>
-              <SkeletonCard />
-            </motion.div>
+            <div key={i} className="bg-white border border-slate-200 h-80 animate-pulse rounded-2xl shadow-sm" />
           ))
         ) : (
-          <AnimatePresence>
-            {filteredTours.map((tour, i) => (
-              <motion.div
-                key={tour._id || tour.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ delay: i * 0.05 }}
-                layout
-              >
-                <TourCard tour={tour} viewMode={viewMode} />
-              </motion.div>
-            ))}
-          </AnimatePresence>
+          filteredTours.map((tour) => (
+            <TourCard key={tour._id || tour.id} tour={tour} viewMode={viewMode} />
+          ))
         )}
       </div>
 
-      {/* ─── Empty State ─── */}
+      {/* Empty State */}
       {!loading && filteredTours.length === 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-center py-20 glass-card"
-        >
-          <Search size={48} className="text-gray-600 mx-auto mb-4" />
-          <p className="text-xl text-gray-400 font-display">No experiences found in this sector.</p>
-          <p className="text-gray-600 text-sm mt-2">Try adjusting your filters or clearing the search.</p>
+        <div className="text-center py-16 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <Search size={40} className="text-slate-400 mx-auto" />
+          <h3 className="text-lg font-bold text-slate-900">No trek packages match your filter</h3>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            Try adjusting your difficulty or maximum price filter.
+          </p>
           <button
             onClick={() => { fetchTours(); setSearchQuery(''); setDifficulty('All'); setMaxPrice(10000); }}
-            className="mt-6 text-primary hover:underline font-mono uppercase text-xs tracking-widest"
+            className="btn-luxury-outline py-2 px-6 text-xs text-primary border-red-200 hover:bg-red-50"
           >
             Reset All Filters
           </button>
-        </motion.div>
+        </div>
       )}
     </div>
   );

@@ -1,134 +1,61 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import Navbar from './Navbar';
+import { Flame, PhoneCall, Heart } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
-import { 
-  Menu, 
-  X, 
-  Compass, 
-  LayoutDashboard, 
-  User, 
-  Settings, 
-  LogOut, 
-  Map, 
-  Shield 
-} from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [scrolled, setScrolled] = useState(false);
-  const { user, logout } = useAuth();
-
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  const navItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-    { icon: Compass, label: 'Tours', path: '/tours' },
-    { icon: Shield, label: 'Admin', path: '/admin' },
-    { icon: User, label: 'Profile', path: '/profile' },
-  ];
-
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
-      {/* Ambient background glow */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px] animate-pulse-slow"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-accent/10 rounded-full blur-[120px] animate-pulse-slow" style={{ animationDelay: '1s' }}></div>
+    <div className="min-h-screen bg-background relative flex flex-col font-sans">
+      {/* Top Announcement Notice Bar */}
+      <div className="top-notice-bar flex items-center justify-between px-4 sm:px-8">
+        <div className="flex items-center gap-2 mx-auto sm:mx-0">
+          <Flame size={14} className="text-yellow-300 animate-bounce" />
+          <span>AUTUMN & WINTER EXPEDITIONS 2026 — EARLY BIRD DISCOUNT ACTIVE!</span>
+        </div>
+        <div className="hidden sm:flex items-center gap-4 text-[11px]">
+          <span className="flex items-center gap-1"><PhoneCall size={12} /> +91 99997 79136</span>
+          <span>•</span>
+          <span>24/7 Guide Support</span>
+        </div>
       </div>
 
-      {/* Navigation Bar (Floating/Glassmorphic) */}
-      <nav className={`fixed top-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-500 w-[90%] max-w-7xl ${scrolled ? 'top-4' : 'top-6'}`}>
-        <div className="glass-morphism rounded-2xl px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center neo-glow-emerald">
-              <Map className="text-white w-6 h-6" />
-            </div>
-            <span className="font-display text-2xl font-bold tracking-tighter text-white">TRA-WELL</span>
-          </div>
+      {/* Main Brand Header Navigation */}
+      <Navbar />
 
-          <div className="hidden md:flex items-center gap-8">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) => `
-                  flex items-center gap-2 font-medium transition-all duration-300 hover:scale-105 active:scale-95
-                  ${isActive ? 'text-primary' : 'text-gray-400 hover:text-white'}
-                `}
-              >
-                <item.icon size={18} />
-                <span>{item.label}</span>
-              </NavLink>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-4">
-            {user ? (
-              <div className="flex items-center gap-3">
-                <span className="text-gray-300 text-sm hidden sm:inline font-mono">
-                  {user.name.toUpperCase()}
-                </span>
-                <button 
-                  onClick={logout} 
-                  className="btn-luxury-outline py-2 px-5 text-sm flex items-center gap-2"
-                >
-                  <LogOut size={14} />
-                  <span>Sign Out</span>
-                </button>
-              </div>
-            ) : (
-              <NavLink to="/auth" className="btn-luxury-outline py-2 px-5 text-sm">
-                Sign In
-              </NavLink>
-            )}
-            <button 
-              className="md:hidden text-white"
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            >
-              {isSidebarOpen ? <X /> : <Menu />}
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* Main Content Area */}
-      <main className="relative z-10 pt-32 pb-20 px-6 sm:px-10 max-w-7xl mx-auto">
+      {/* Main Page Viewport Container */}
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-8 py-8">
         {children}
       </main>
 
-      {/* Side HUD Overlay (Optional feature for dashboards) */}
-      <div className="fixed right-6 top-1/2 -translate-y-1/2 hidden xl:flex flex-col gap-4 z-40">
-        <button className="w-12 h-12 glass-morphism rounded-full flex items-center justify-center text-gray-400 hover:text-primary hover:border-primary/50 transition-all hover:scale-110">
-          <Settings size={20} />
-        </button>
-        {user && (
-          <button 
-            onClick={logout}
-            className="w-12 h-12 glass-morphism rounded-full flex items-center justify-center text-gray-400 hover:text-red-400 hover:border-red-400/50 transition-all hover:scale-110"
-            title="Log Out"
-          >
-            <LogOut size={20} />
-          </button>
-        )}
-      </div>
-
-      <footer className="relative z-10 border-t border-white/5 py-12 mt-20">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8 text-gray-500 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="font-display font-bold text-white">TRA-WELL</span>
-            <span>&copy; 2024. ALL RIGHTS RESERVED.</span>
+      {/* Footer */}
+      <footer className="bg-slate-950 border-t border-slate-800 text-slate-400 text-xs py-12 mt-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 space-y-8">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pb-8 border-b border-slate-800">
+            <div className="space-y-2">
+              <span className="font-display text-xl font-extrabold text-white tracking-tight">
+                TRA<span className="text-primary">-WELL</span>
+              </span>
+              <p className="text-slate-400 text-xs max-w-md">
+                India's premier adventure travel and trekking platform. Certified mountaineers, sustainable trails, and high-altitude safety guaranteed.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-6 font-bold text-slate-300">
+              <NavLink to="/" className="hover:text-primary transition-colors">Home</NavLink>
+              <NavLink to="/tours" className="hover:text-primary transition-colors">All Tours</NavLink>
+              <NavLink to="/about" className="hover:text-primary transition-colors">About Us</NavLink>
+              <NavLink to="/contact" className="hover:text-primary transition-colors">Contact</NavLink>
+            </div>
           </div>
-          <div className="flex gap-8">
-            <a href="#" className="hover:text-white transition-colors">PRIVACY POLICY</a>
-            <a href="#" className="hover:text-white transition-colors">TERMS OF SERVICE</a>
-            <a href="#" className="hover:text-white transition-colors">SUPPORT</a>
+
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-[11px] text-slate-500">
+            <p>&copy; 2026 Tra-Well Expeditions Inc. All rights reserved.</p>
+            <p className="flex items-center gap-1">
+              Crafted with <Heart size={12} className="text-red-500 fill-red-500" /> for mountain purists & explorers.
+            </p>
           </div>
         </div>
       </footer>

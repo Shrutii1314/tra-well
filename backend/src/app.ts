@@ -10,16 +10,23 @@ import './config/redis';
 // Load environment variables immediately
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
-// Import your routers
+// Import TypeScript & JavaScript Routers
 import tourRouter from './routes/tourRoutes';
 import userRouter from './routes/userRoutes';
 import reviewRouter from './routes/reviewRoutes';
 import bookingRouter from './routes/bookingRoutes';
+import { autoSeedAdmin } from './utils/seedAdmin';
+
+// Import New JS Core Routers
+const authJsRouter = require('../routes/authRoutes');
+const agencyJsRouter = require('../routes/agencyRoutes');
+const adminJsRouter = require('../routes/adminRoutes');
+const bookingJsRouter = require('../routes/bookingRoutes');
 
 const app = express();
 
 // 1️⃣ GLOBAL SECURITY MIDDLEWARE
-// A. Enable CORS (Cross-Origin Resource Sharing) for future frontend connections
+// A. Enable CORS (Cross-Origin Resource Sharing)
 app.use(cors());
 
 // B. Set secure HTTP headers via Helmet
@@ -41,17 +48,15 @@ app.use((req, res, next) => {
   const clean = (obj: any) => {
     if (obj && typeof obj === 'object') {
       for (const key in obj) {
-        // If a key starts with $ (like $gt) or contains a dot, delete it to prevent injection
         if (key.startsWith('$') || key.includes('.')) {
           delete obj[key];
         } else if (typeof obj[key] === 'object') {
-          clean(obj[key]); // Recursively clean nested objects
+          clean(obj[key]);
         }
       }
     }
   };
 
-  // Sanitize all incoming request components safely
   if (req.body) clean(req.body);
   if (req.params) clean(req.params);
   if (req.query) clean(req.query);
@@ -60,10 +65,13 @@ app.use((req, res, next) => {
 });
 
 // 2️⃣ MOUNT ROUTERS
+app.use('/api/v1/auth', authJsRouter);
+app.use('/api/v1/agency', agencyJsRouter);
+app.use('/api/v1/admin', adminJsRouter);
+app.use('/api/v1/bookings', bookingJsRouter); // New core booking router
 app.use('/api/v1/tours', tourRouter);
 app.use('/api/v1/users', userRouter);
 app.use('/api/v1/reviews', reviewRouter);
-app.use('/api/v1/bookings', bookingRouter);
 
 // 3️⃣ FALLBACK ROUTE
 app.all(/(.*)/, (req, res) => {
@@ -75,16 +83,14 @@ app.all(/(.*)/, (req, res) => {
 
 // 4️⃣ CONNECT TO DATABASE & START SERVER
 const PORT = process.env.PORT || 5000;
-
-// Read directly from MONGO_URI in your .env file
 const DB = process.env.MONGO_URI || process.env.DATABASE || 'mongodb://localhost:27017/tra-well';
 
 mongoose
   .connect(DB)
-  .then((conn) => {
+  .then(async (conn) => {
     console.log(`📦 Database connection successful! Host: ${conn.connection.host} | DB Name: ${conn.connection.name}`);
+    await autoSeedAdmin();
 
-    // Only start listening to network traffic once the database is safely connected
     app.listen(PORT, () => {
       console.log(`🚀 Security-locked server is running on port ${PORT}...`);
     });
