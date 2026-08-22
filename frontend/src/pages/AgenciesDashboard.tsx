@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ShieldCheck, Star, MapPin, Search, Phone, Mail, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getAllAgenciesList } from '../services/agencyStore';
 
 export interface Agency {
   id: string;
@@ -88,8 +89,9 @@ export const TOP_AGENCIES: Agency[] = [
 
 const AgenciesDashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const allAgencies = getAllAgenciesList();
 
-  const filteredAgencies = TOP_AGENCIES.filter((agency) => {
+  const filteredAgencies = allAgencies.filter((agency) => {
     const q = searchQuery.toLowerCase();
     return (
       agency.name.toLowerCase().includes(q) ||

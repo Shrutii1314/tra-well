@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShieldCheck, Building2, Upload, FileText, CheckCircle2, ArrowRight, Lock, Mail, Phone, MapPin, Globe, Compass } from 'lucide-react';
+import { ShieldCheck, Building2, Upload, FileText, CheckCircle2, ArrowRight, Lock, Mail, Phone, MapPin, Globe, Compass, AlertCircle } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 const AgencyRegister: React.FC = () => {
   const navigate = useNavigate();
+  const { signup } = useAuth();
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   // Form State
   const [formData, setFormData] = useState({
@@ -35,13 +38,31 @@ const AgencyRegister: React.FC = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    setTimeout(() => {
+    setError('');
+
+    try {
+      await signup({
+        name: formData.agencyName,
+        email: formData.email,
+        password: formData.password,
+        passwordConfirm: formData.passwordConfirm,
+        role: 'agency',
+        licenseNumber: formData.licenseNumber,
+        phone: formData.phone,
+        address: formData.address,
+        website: formData.website,
+        govIdDoc: formData.govIdFileName,
+        licenseDoc: formData.licenseFileName
+      });
       setSubmitting(false);
       setStep(4); // Advance to Pending Approval screen
-    }, 1200);
+    } catch (err: any) {
+      setSubmitting(false);
+      setError(err?.response?.data?.message || 'Registration failed. Please check your inputs and try again.');
+    }
   };
 
   return (
@@ -64,7 +85,7 @@ const AgencyRegister: React.FC = () => {
           </div>
         </Link>
 
-        <Link to="/agency/dashboard" className="text-xs font-bold text-slate-400 hover:text-white transition-colors">
+        <Link to="/auth" className="text-xs font-bold text-slate-400 hover:text-white transition-colors">
           Already registered? <span className="text-primary underline">Sign In</span>
         </Link>
       </div>
@@ -282,6 +303,13 @@ const AgencyRegister: React.FC = () => {
           {/* ── STEP 3: ACCOUNT ACCESS & CREDENTIALS ── */}
           {step === 3 && (
             <form onSubmit={handleSubmit} className="space-y-4 text-xs pt-2">
+              {error && (
+                <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-xs flex items-center gap-2">
+                  <AlertCircle size={16} className="shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
               <div className="space-y-1">
                 <label className="font-bold text-slate-300 flex items-center gap-1">
                   <Lock size={13} className="text-primary" /> Create Portal Password
@@ -323,7 +351,7 @@ const AgencyRegister: React.FC = () => {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="btn-luxury-primary py-3 px-4 font-bold flex-[2] shadow-lg"
+                  className="btn-luxury-primary py-3 px-4 font-bold flex-[2] shadow-lg disabled:opacity-50"
                 >
                   {submitting ? 'Submitting Application...' : 'Submit Partner Application'}
                 </button>
@@ -342,29 +370,29 @@ const AgencyRegister: React.FC = () => {
                 <span className="px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-widest bg-amber-500/10 text-amber-400 border border-amber-500/30">
                   Verification Pending
                 </span>
-                <h2 className="text-2xl font-extrabold font-display text-white">Application Under Review</h2>
+                <h2 className="text-2xl font-extrabold font-display text-white">Application Submitted to Admin</h2>
                 <p className="text-xs text-slate-300 leading-relaxed max-w-md mx-auto">
-                  Thank you for registering <strong>{formData.agencyName || 'your agency'}</strong> with Tra-Well! Our compliance team is verifying your business license and government ID credentials.
+                  Thank you for registering <strong>{formData.agencyName || 'your agency'}</strong> with Tra-Well! Your profile is currently under review by our Admin team. You will be able to log in to your dashboard once an Admin approves your application.
                 </p>
               </div>
 
               <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-xs text-slate-400 space-y-2 max-w-md mx-auto text-left">
                 <div className="flex justify-between border-b border-slate-800 pb-2">
-                  <span>Application Reference ID:</span>
-                  <strong className="font-mono text-white">APP-2026-9842</strong>
+                  <span>Contact Email:</span>
+                  <strong className="font-mono text-white">{formData.email}</strong>
                 </div>
                 <div className="flex justify-between">
-                  <span>Estimated Review Time:</span>
-                  <strong className="text-amber-400 font-mono">Within 24 Hours</strong>
+                  <span>Account Status:</span>
+                  <strong className="text-amber-400 font-mono">Pending Admin Approval</strong>
                 </div>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
                 <button
-                  onClick={() => navigate('/agency/dashboard')}
+                  onClick={() => navigate('/auth')}
                   className="btn-luxury-primary text-xs py-3 px-6 font-bold shadow-md"
                 >
-                  Preview Partner Dashboard
+                  Go to Sign In Page
                 </button>
                 <button
                   onClick={() => navigate('/')}

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Grid, List as ListIcon, Search, X, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import TourCard from '../components/TourCard';
 import { getTours } from '../services/tourService';
+import { getAllToursList } from '../services/agencyStore';
 import { useSearchParams } from 'react-router-dom';
 
 type SortOption = 'price-asc' | 'price-desc' | 'rating-desc' | 'duration-asc';
@@ -48,9 +49,12 @@ const ToursDashboard = () => {
     setLoading(true);
     try {
       const data = await getTours();
-      setAllTours(data || []);
+      const merged = getAllToursList(data || []);
+      setAllTours(merged);
     } catch (error) {
       console.error('Failed to fetch tours:', error);
+      const merged = getAllToursList([]);
+      setAllTours(merged);
     } finally {
       setLoading(false);
     }

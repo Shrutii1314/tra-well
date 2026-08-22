@@ -23,7 +23,7 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['user', 'agency', 'admin'],
+      enum: ['user', 'agency', 'guide', 'lead-guide', 'admin'],
       default: 'user'
     },
     phone: {
@@ -57,6 +57,7 @@ userSchema.methods.comparePassword = async function (candidatePassword, userPass
   const hashToCompare = userPassword || this.password;
   return await bcrypt.compare(candidatePassword, hashToCompare);
 };
+userSchema.methods.correctPassword = userSchema.methods.comparePassword;
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);
 module.exports = User;

@@ -12,7 +12,7 @@ import AgencyRegister from './pages/agency/AgencyRegister';
 import AgencyPortal from './pages/agency/AgencyPortal';
 import About from './pages/About';
 import Contact from './pages/Contact';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { useAuth } from './context/AuthContext';
 
 // Auth Protection Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -24,10 +24,22 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Agency Dedicated Protected Route Component
+const AgencyProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { token, user, loading } = useAuth();
+  
+  if (loading) return null;
+  if (!token || !user) return <Navigate to="/auth" replace />;
+  if (user.role !== 'agency' || user.agencyStatus !== 'approved') {
+    return <Navigate to="/auth" replace />;
+  }
+  
+  return <>{children}</>;
+};
+
 function App() {
   return (
-    <AuthProvider>
-      <Router>
+    <Router>
         <Routes>
           {/* Public Auth Route */}
           <Route path="/auth" element={<AuthPage />} />
@@ -35,12 +47,12 @@ function App() {
           {/* Agency Onboarding Registration */}
           <Route path="/agency/register" element={<AgencyRegister />} />
 
-          {/* Dedicated Agency & Tour Guide Management Portal */}
-          <Route path="/agency" element={<AgencyPortal />} />
-          <Route path="/agency/dashboard" element={<AgencyPortal />} />
-          <Route path="/agency/tours" element={<AgencyPortal />} />
-          <Route path="/agency/bookings" element={<AgencyPortal />} />
-          <Route path="/agency/settings" element={<AgencyPortal />} />
+          {/* Dedicated Agency & Tour Guide Management Portal (Strictly Protected) */}
+          <Route path="/agency" element={<AgencyProtectedRoute><AgencyPortal /></AgencyProtectedRoute>} />
+          <Route path="/agency/dashboard" element={<AgencyProtectedRoute><AgencyPortal /></AgencyProtectedRoute>} />
+          <Route path="/agency/tours" element={<AgencyProtectedRoute><AgencyPortal /></AgencyProtectedRoute>} />
+          <Route path="/agency/bookings" element={<AgencyProtectedRoute><AgencyPortal /></AgencyProtectedRoute>} />
+          <Route path="/agency/settings" element={<AgencyProtectedRoute><AgencyPortal /></AgencyProtectedRoute>} />
 
           {/* Public Homepage */}
           <Route 
@@ -172,7 +184,6 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
-    </AuthProvider>
   );
 }
 

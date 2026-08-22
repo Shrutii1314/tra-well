@@ -4,8 +4,8 @@ import {
   ShieldCheck, Star, MapPin, Phone, Mail, ArrowLeft, Package, 
   CheckCircle2, Award, MessageSquare 
 } from 'lucide-react';
-import { TOP_AGENCIES } from './AgenciesDashboard';
 import TourCard, { type Tour } from '../components/TourCard';
+import { getAllAgenciesList, getAllToursList } from '../services/agencyStore';
 
 const MOCK_AGENCY_TOURS: Tour[] = [
   {
@@ -45,7 +45,18 @@ const AgencyProfile: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'packages' | 'about' | 'reviews'>('packages');
 
-  const agency = TOP_AGENCIES.find((a) => a.id === id) || TOP_AGENCIES[0];
+  const allAgencies = getAllAgenciesList();
+  const allTours = getAllToursList([]);
+
+  const agency = allAgencies.find((a) => a.id === id || a.name.toLowerCase().includes(String(id).toLowerCase())) || allAgencies[0];
+
+  // Filter tours published strictly by this specific agency
+  const agencyTours = allTours.filter(
+    (t) =>
+      (t.agencyId && t.agencyId === agency.id) ||
+      (t.agencyName && t.agencyName.toLowerCase().includes(agency.name.toLowerCase())) ||
+      (t.agencyEmail && t.agencyEmail.toLowerCase() === agency.email.toLowerCase())
+  );
 
   return (
     <div className="space-y-8 pb-16 animate-fade-in">
@@ -146,15 +157,23 @@ const AgencyProfile: React.FC = () => {
           <div className="flex justify-between items-center pb-3 border-b border-slate-200">
             <div>
               <span className="text-xs font-mono font-bold text-primary uppercase tracking-widest">Agency Offerings</span>
-              <h2 className="text-xl font-extrabold text-slate-900 font-display">Published Expeditions</h2>
+              <h2 className="text-xl font-extrabold text-slate-900 font-display">Published Expeditions ({agencyTours.length})</h2>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {MOCK_AGENCY_TOURS.map((tour) => (
-              <TourCard key={tour._id || tour.id} tour={tour} />
-            ))}
-          </div>
+          {agencyTours.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {agencyTours.map((tour) => (
+                <TourCard key={tour._id || tour.id} tour={tour} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 bg-white rounded-3xl border border-slate-200 p-8 space-y-2">
+              <Package size={36} className="text-slate-400 mx-auto" />
+              <h3 className="text-base font-bold text-slate-900">No active packages published yet</h3>
+              <p className="text-xs text-slate-500">This agency hasn't published any tour packages yet.</p>
+            </div>
+          )}
         </div>
       )}
 

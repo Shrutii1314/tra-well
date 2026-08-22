@@ -3,9 +3,15 @@ import axios from 'axios';
 
 interface User {
   id: string;
+  _id?: string;
   name: string;
   email: string;
   role: string;
+  agencyStatus?: 'pending' | 'approved' | 'rejected';
+  licenseNumber?: string;
+  phone?: string;
+  address?: string;
+  website?: string;
 }
 
 interface AuthContextType {
@@ -13,7 +19,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (credentials: any) => Promise<void>;
-  signup: (userData: any) => Promise<void>;
+  signup: (userData: any) => Promise<User | null>;
   logout: () => void;
   updateUserInContext: (updatedUser: User) => void;
 }
@@ -54,17 +60,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signup = async (userData: any) => {
+  const signup = async (userData: any): Promise<User | null> => {
     try {
       const res = await axios.post('http://localhost:5000/api/v1/users/signup', userData);
       if (res.data.status === 'success') {
         const { token: userToken, data: { user: newUser } } = res.data;
+        // If registering as an agency, agencyStatus is pending - do NOT log them in automatically
+        if (newUser.role === 'agency') {
+          return newUser;
+        }
         setUser(newUser);
         setToken(userToken);
         localStorage.setItem('user', JSON.stringify(newUser));
         localStorage.setItem('token', userToken);
         axios.defaults.headers.common['Authorization'] = `Bearer ${userToken}`;
+        return newUser;
       }
+      return null;
     } catch (err) {
       console.error('Signup error:', err);
       throw err;

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Compass, Menu, X, Search, LogOut, Calendar, ShieldCheck, ChevronDown, Heart, LayoutDashboard } from 'lucide-react';
+import { Compass, Menu, X, Search, LogOut, Calendar, ShieldCheck, ChevronDown, Heart, LayoutDashboard, Building2, Package, Users } from 'lucide-react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -11,7 +11,7 @@ const Navbar: React.FC = () => {
   const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Wishlist count state (reads from localStorage or default)
+  // Wishlist count state
   const wishlistCount = 2;
 
   // Close dropdown on outside click
@@ -123,9 +123,14 @@ const Navbar: React.FC = () => {
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-slate-900 to-slate-700 text-white font-bold text-xs flex items-center justify-center shadow-xs">
                   {getUserInitials(user.name)}
                 </div>
-                <span className="text-xs font-bold text-slate-800 hidden sm:inline max-w-[120px] truncate">
-                  {user.name}
-                </span>
+                <div className="text-left hidden sm:block max-w-[120px]">
+                  <span className="text-xs font-bold text-slate-800 block truncate leading-none">
+                    {user.name}
+                  </span>
+                  <span className="text-[9px] font-mono text-primary font-bold uppercase block mt-0.5 truncate">
+                    {user.role}
+                  </span>
+                </div>
                 <ChevronDown size={14} className={`text-slate-500 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
 
@@ -135,13 +140,53 @@ const Navbar: React.FC = () => {
                   <div className="px-4 py-2 border-b border-slate-100">
                     <p className="font-bold text-slate-900 truncate">{user.name}</p>
                     <p className="text-slate-500 text-[11px] truncate">{user.email}</p>
+                    
+                    {user.role === 'agency' && (
+                      <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-amber-50 text-amber-800 border border-amber-200">
+                        <Building2 size={11} /> Tour Operator Agency
+                      </span>
+                    )}
+
                     {user.role === 'admin' && (
-                      <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-amber-50 text-amber-700 border border-amber-200">
-                        Admin Portal
+                      <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-red-50 text-primary border border-red-200">
+                        <ShieldCheck size={11} /> Admin Control
                       </span>
                     )}
                   </div>
 
+                  {/* AGENCY SPECIFIC NAVIGATION */}
+                  {user.role === 'agency' && (
+                    <>
+                      <Link
+                        to="/agency/dashboard"
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2 text-slate-700 hover:bg-slate-50 hover:text-amber-600 font-bold transition-colors"
+                      >
+                        <Building2 size={15} className="text-amber-500" />
+                        <span>Agency Dashboard</span>
+                      </Link>
+
+                      <Link
+                        to="/agency/tours"
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2 text-slate-700 hover:bg-slate-50 hover:text-amber-600 font-medium transition-colors"
+                      >
+                        <Package size={15} className="text-amber-500" />
+                        <span>My Tour Packages</span>
+                      </Link>
+
+                      <Link
+                        to="/agency/bookings"
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2 text-slate-700 hover:bg-slate-50 hover:text-amber-600 font-medium transition-colors"
+                      >
+                        <Users size={15} className="text-amber-500" />
+                        <span>Traveler Candidate Rosters</span>
+                      </Link>
+                    </>
+                  )}
+
+                  {/* STANDARD TRAVELER DASHBOARD LINKS */}
                   <Link
                     to="/my-dashboard"
                     onClick={() => setIsDropdownOpen(false)}
@@ -160,23 +205,14 @@ const Navbar: React.FC = () => {
                     <span>My Bookings</span>
                   </Link>
 
-                  <Link
-                    to="/my-dashboard?tab=wishlist"
-                    onClick={() => setIsDropdownOpen(false)}
-                    className="flex items-center gap-2.5 px-4 py-2 text-slate-700 hover:bg-slate-50 hover:text-primary font-medium transition-colors"
-                  >
-                    <Heart size={15} className="text-red-500" />
-                    <span>Saved Tours</span>
-                  </Link>
-
                   {user.role === 'admin' && (
                     <Link
                       to="/admin"
                       onClick={() => setIsDropdownOpen(false)}
                       className="flex items-center gap-2.5 px-4 py-2 text-slate-700 hover:bg-slate-50 hover:text-primary font-medium transition-colors"
                     >
-                      <ShieldCheck size={15} className="text-amber-600" />
-                      <span>Admin Control</span>
+                      <ShieldCheck size={15} className="text-primary" />
+                      <span>Admin Control Center</span>
                     </Link>
                   )}
 

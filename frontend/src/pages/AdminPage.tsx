@@ -9,7 +9,7 @@ import {
   FileText
 } from 'lucide-react';
 import { getTours, createTour, updateTour, deleteTour } from '../services/tourService';
-import { getAllUsers, updateUserRole, deleteUser, makeMeAdmin } from '../services/userService';
+import { getAllUsers, updateUserRole, updateAgencyStatus, deleteUser, makeMeAdmin } from '../services/userService';
 import { getAllBookings, cancelBooking } from '../services/bookingService';
 import { getAllReviews } from '../services/reviewService';
 import { useAuth } from '../context/AuthContext';
@@ -101,6 +101,51 @@ const AdminPage = () => {
   const [rejectionModalOpen, setRejectionModalOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
 
+  // Users State
+  const [usersList, setUsersList] = useState<any[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [updatingUserRole, setUpdatingUserRole] = useState<string | null>(null);
+  const [deleteUserConfirm, setDeleteUserConfirm] = useState<string | null>(null);
+  const [userSearch, setUserSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+
+  const effectiveApprovalsQueue = useMemo(() => {
+    const dbPending = usersList
+      .filter((u) => u.role === 'agency' && (u.agencyStatus === 'pending' || !u.agencyStatus))
+      .map((u) => ({
+        id: u._id || u.id,
+        agencyName: u.name,
+        licenseNumber: u.licenseNumber || 'IMP-GOV-2026-9901',
+        contactEmail: u.email,
+        phone: u.phone || '+91 98111 22334',
+        address: u.address || 'Shimla, Himachal Pradesh',
+        submissionDate: 'Recent',
+        status: 'Pending',
+        govIdDoc: u.govIdDoc || 'Aadhaar_Owner_Card.pdf',
+        licenseDoc: u.licenseDoc || 'Ministry_Tourism_License.pdf'
+      }));
+    const extraMock = approvalsQueue.filter((a) => !dbPending.some((db) => db.id === a.id));
+    return [...dbPending, ...extraMock];
+  }, [usersList, approvalsQueue]);
+
+  const effectiveAgenciesList = useMemo(() => {
+    const dbApproved = usersList
+      .filter((u) => u.role === 'agency' && u.agencyStatus === 'approved')
+      .map((u, idx) => ({
+        id: u._id || u.id,
+        agencyName: u.name,
+        licenseNumber: u.licenseNumber || `IMP-GOV-2026-${8800 + idx}`,
+        contactEmail: u.email,
+        phone: u.phone || '+91 98160 12345',
+        status: 'Approved',
+        verified: true,
+        toursCount: 0,
+        revenueGenerated: 0
+      }));
+    const extraMock = agenciesList.filter((a) => !dbApproved.some((db) => db.id === a.id));
+    return [...dbApproved, ...extraMock];
+  }, [usersList, agenciesList]);
+
   // Tours State
   const [tours, setTours] = useState<any[]>([]);
   const [toursLoading, setToursLoading] = useState(true);
@@ -110,14 +155,6 @@ const AdminPage = () => {
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [tourSearch, setTourSearch] = useState('');
-
-  // Users State
-  const [usersList, setUsersList] = useState<any[]>([]);
-  const [usersLoading, setUsersLoading] = useState(false);
-  const [updatingUserRole, setUpdatingUserRole] = useState<string | null>(null);
-  const [deleteUserConfirm, setDeleteUserConfirm] = useState<string | null>(null);
-  const [userSearch, setUserSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState('all');
 
   // Bookings State
   const [bookingsList, setBookingsList] = useState<any[]>([]);
@@ -207,34 +244,63 @@ const AdminPage = () => {
   };
 
   // Agency Approval Handlers
-  const handleApproveAgency = (reqId: string) => {
-    const target = approvalsQueue.find((a) => a.id === reqId);
+  const handleApproveAgency = async (reqId: string) => {
+    const target = effectiveApprovalsQueue.find((a) => a.id === reqId);
     if (target) {
-      setApprovalsQueue((prev) => prev.filter((a) => a.id !== reqId));
-      setAgenciesList((prev) => [
-        ...prev,
-        {
-          id: `AG-${prev.length + 1}`,
-          agencyName: target.agencyName,
-          licenseNumber: target.licenseNumber,
-          contactEmail: target.contactEmail,
-          phone: target.phone,
-          status: 'Approved',
-          verified: true,
-          toursCount: 0,
-          revenueGenerated: 0
+      const isRealUser = usersList.some((u) => (u._id || u.id) === reqId);
+      if (token && isRealUser) {
+        try {
+          await updateAgencyStatus(reqId, 'approved', token);
+          setUsersList((prev) =>
+            prev.map((u) => ((u._id || u.id) === reqId ? { ...u, agencyStatus: 'approved' } : u))
+          );
+        } catch (err: any) {
+          alert(err?.response?.data?.message || 'Could not approve agency.');
+          return;
         }
-      ]);
+      } else {
+        setApprovalsQueue((prev) => prev.filter((a) => a.id !== reqId));
+        setAgenciesList((prev) => [
+          ...prev,
+          {
+            id: `AG-${prev.length + 1}`,
+            agencyName: target.agencyName,
+            licenseNumber: target.licenseNumber,
+            contactEmail: target.contactEmail,
+            phone: target.phone,
+            status: 'Approved',
+            verified: true,
+            toursCount: 0,
+            revenueGenerated: 0
+          }
+        ]);
+      }
       setSelectedApprovalReq(null);
       setSuccessMsg(`Agency "${target.agencyName}" approved successfully! Verified badge granted.`);
       setTimeout(() => setSuccessMsg(''), 4000);
     }
   };
 
-  const handleRejectAgencySubmit = () => {
+  const handleRejectAgencySubmit = async () => {
     if (!selectedApprovalReq) return;
+    const reqId = selectedApprovalReq.id;
     const targetName = selectedApprovalReq.agencyName;
-    setApprovalsQueue((prev) => prev.filter((a) => a.id !== selectedApprovalReq.id));
+    const isRealUser = usersList.some((u) => (u._id || u.id) === reqId);
+
+    if (token && isRealUser) {
+      try {
+        await updateAgencyStatus(reqId, 'rejected', token);
+        setUsersList((prev) =>
+          prev.map((u) => ((u._id || u.id) === reqId ? { ...u, agencyStatus: 'rejected' } : u))
+        );
+      } catch (err: any) {
+        alert(err?.response?.data?.message || 'Could not decline agency application.');
+        return;
+      }
+    } else {
+      setApprovalsQueue((prev) => prev.filter((a) => a.id !== reqId));
+    }
+
     setRejectionModalOpen(false);
     setSelectedApprovalReq(null);
     setRejectionReason('');
@@ -551,8 +617,8 @@ const AdminPage = () => {
       <div className="flex overflow-x-auto gap-2 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm">
         {[
           { id: 'overview', label: 'Platform Analytics', icon: TrendingUp },
-          { id: 'approvals', label: `Agency Approvals (${approvalsQueue.length})`, icon: ShieldCheck },
-          { id: 'agencies', label: `Manage Agencies (${agenciesList.length})`, icon: Building2 },
+          { id: 'approvals', label: `Agency Approvals (${effectiveApprovalsQueue.length})`, icon: ShieldCheck },
+          { id: 'agencies', label: `Manage Agencies (${effectiveAgenciesList.length})`, icon: Building2 },
           { id: 'tours', label: `Tours Oversight (${tours.length})`, icon: Package },
           { id: 'bookings', label: `Bookings Ledger (${bookingsList.length})`, icon: Bookmark },
           { id: 'users', label: `User Moderation (${usersList.length})`, icon: UserCheck },
@@ -582,7 +648,7 @@ const AdminPage = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {[
               { label: 'Total Platform Revenue', value: `$${totalPlatformRevenue.toLocaleString()}`, change: '10% Platform Cut', icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-              { label: 'Registered Agencies', value: `${agenciesList.length} Approved`, change: `${approvalsQueue.length} Pending Review`, icon: Building2, color: 'text-sky-600', bg: 'bg-sky-50' },
+              { label: 'Registered Agencies', value: `${effectiveAgenciesList.length} Approved`, change: `${effectiveApprovalsQueue.length} Pending Review`, icon: Building2, color: 'text-sky-600', bg: 'bg-sky-50' },
               { label: 'Active Tour Packages', value: tours.length, change: 'Across all outfitters', icon: Package, color: 'text-amber-600', bg: 'bg-amber-50' },
               { label: 'Total Traveler Bookings', value: bookingsList.length > 0 ? bookingsList.length : 342, change: '+18.2% YoY', icon: Bookmark, color: 'text-purple-600', bg: 'bg-purple-50' },
             ].map((kpi, i) => (
@@ -646,7 +712,7 @@ const AdminPage = () => {
               </div>
 
               <div className="space-y-3">
-                {approvalsQueue.map((req) => (
+                {effectiveApprovalsQueue.map((req) => (
                   <div key={req.id} className="p-3.5 bg-amber-50 rounded-xl border border-amber-200 space-y-2 text-xs">
                     <div className="flex items-center justify-between">
                       <span className="font-extrabold text-amber-900">{req.agencyName}</span>
@@ -662,7 +728,7 @@ const AdminPage = () => {
                   </div>
                 ))}
 
-                {approvalsQueue.length === 0 && (
+                {effectiveApprovalsQueue.length === 0 && (
                   <p className="text-center text-xs text-slate-400 py-8">No pending verification alerts.</p>
                 )}
               </div>
@@ -680,11 +746,11 @@ const AdminPage = () => {
               <h2 className="text-xl font-extrabold text-slate-900 font-display">Agency Verification Requests</h2>
             </div>
             <span className="px-3 py-1 bg-amber-50 text-amber-700 text-xs font-bold rounded-xl border border-amber-200">
-              {approvalsQueue.length} Pending Admin Review
+              {effectiveApprovalsQueue.length} Pending Admin Review
             </span>
           </div>
 
-          {approvalsQueue.length === 0 ? (
+          {effectiveApprovalsQueue.length === 0 ? (
             <div className="bg-white p-12 text-center text-slate-500 rounded-3xl border border-slate-200 shadow-sm space-y-3">
               <CheckCircle2 size={36} className="mx-auto text-emerald-500" />
               <p className="font-bold text-slate-900 font-display">All Verification Requests Processed</p>
@@ -703,7 +769,7 @@ const AdminPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-                  {approvalsQueue.map((req) => (
+                  {effectiveApprovalsQueue.map((req) => (
                     <tr key={req.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-4 px-5">
                         <p className="font-extrabold text-slate-900 text-sm">{req.agencyName}</p>
@@ -752,7 +818,7 @@ const AdminPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-                {agenciesList.map((ag) => (
+                {effectiveAgenciesList.map((ag) => (
                   <tr key={ag.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-4 px-5">
                       <p className="font-extrabold text-slate-900 text-sm flex items-center gap-1.5">

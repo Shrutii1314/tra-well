@@ -28,6 +28,20 @@ export const updateUserRole = async (userId: string, role: string, token: string
   }
 };
 
+export const updateAgencyStatus = async (userId: string, agencyStatus: 'approved' | 'rejected', token: string) => {
+  try {
+    const response = await axios.patch(
+      `${API_BASE_URL}/users/${userId}`,
+      { agencyStatus },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return response.data.data.user;
+  } catch (error) {
+    console.error('Error updating agency status:', error);
+    throw error;
+  }
+};
+
 export const deleteUser = async (userId: string, token: string) => {
   try {
     await axios.delete(`${API_BASE_URL}/users/${userId}`, {

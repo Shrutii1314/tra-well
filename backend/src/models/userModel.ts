@@ -5,7 +5,14 @@ import bcrypt from 'bcryptjs';
 export interface IUser extends Document {
   name: string;
   email: string;
-  role: 'user' | 'guide' | 'lead-guide' | 'admin';
+  role: 'user' | 'agency' | 'guide' | 'lead-guide' | 'admin';
+  agencyStatus?: 'pending' | 'approved' | 'rejected';
+  licenseNumber?: string;
+  phone?: string;
+  address?: string;
+  website?: string;
+  govIdDoc?: string;
+  licenseDoc?: string;
   password: string;
   passwordConfirm?: string; // Made optional since we clear it before saving
   active: boolean;
@@ -14,6 +21,7 @@ export interface IUser extends Document {
 // 2. Define the custom methods interface
 interface IUserMethods {
   correctPassword(candidatePassword: string, userPassword: string): Promise<boolean>;
+  comparePassword(candidatePassword: string, userPassword: string): Promise<boolean>;
 }
 
 // 3. Create a custom Model type that combines the User and its Methods
@@ -35,9 +43,20 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>({
   },
   role: {
     type: String,
-    enum: ['user', 'guide', 'lead-guide', 'admin'],
+    enum: ['user', 'agency', 'guide', 'lead-guide', 'admin'],
     default: 'user'
   },
+  agencyStatus: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending'
+  },
+  licenseNumber: String,
+  phone: String,
+  address: String,
+  website: String,
+  govIdDoc: String,
+  licenseDoc: String,
   password: {
     type: String,
     required: [true, 'Please provide a password!'],
@@ -48,7 +67,6 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>({
     type: String,
     required: [true, 'Please confirm your password!'],
     validate: {
-      // FIX LINE 40: TypeScript now naturally understands 'this' thanks to the Schema generics configuration
       validator: function(this: any, el: string) {
         return el === this.password;
       },
@@ -63,7 +81,6 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>({
 });
 
 // 5. Pre-Save Middleware
-// FIX LINE 61: Changing 'this' parameter type context inside the callback handles 'next' cleanly
 userSchema.pre('save', async function(this: IUser) {
   // If the password wasn't modified, just exit the function early
   if (!this.isModified('password')) return;
@@ -76,8 +93,14 @@ userSchema.pre('save', async function(this: IUser) {
 });
 
 // 6. Instance Method Configuration
-// FIX LINE 68: Safely attached using our explicit IUserMethods blueprint mapping
 userSchema.methods.correctPassword = async function(
+  candidatePassword: string,
+  userPassword: string
+): Promise<boolean> {
+  return await bcrypt.compare(candidatePassword, userPassword);
+};
+
+userSchema.methods.comparePassword = async function(
   candidatePassword: string,
   userPassword: string
 ): Promise<boolean> {

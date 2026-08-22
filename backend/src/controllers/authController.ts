@@ -16,12 +16,20 @@ const signToken = (id: string): string => {
 // 🔐 SIGN UP: Register a brand new user
 export const signup = async (req: Request, res: Response): Promise<void> => {
   try {
+    const role = req.body.role || 'user';
     const newUser = await User.create({
       name: req.body.name,
       email: req.body.email,
       password: req.body.password,
       passwordConfirm: req.body.passwordConfirm,
-      role: req.body.role || 'user'
+      role: role,
+      agencyStatus: role === 'agency' ? 'pending' : undefined,
+      licenseNumber: req.body.licenseNumber,
+      phone: req.body.phone,
+      address: req.body.address,
+      website: req.body.website,
+      govIdDoc: req.body.govIdDoc,
+      licenseDoc: req.body.licenseDoc
     });
 
     const token = signToken(`${newUser._id}`);
@@ -66,6 +74,25 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         message: 'Incorrect email or password'
       });
       return;
+    }
+
+    // Check agency approval status if role is agency
+    if (user.role === 'agency') {
+      const status = user.agencyStatus || 'pending';
+      if (status === 'pending') {
+        res.status(403).json({
+          status: 'fail',
+          message: 'Your agency account is pending administrator approval. You cannot log in until an administrator approves your profile.'
+        });
+        return;
+      }
+      if (status === 'rejected') {
+        res.status(403).json({
+          status: 'fail',
+          message: 'Your agency registration application was declined by the administrator. Login access is disabled.'
+        });
+        return;
+      }
     }
 
     const token = signToken(`${user._id}`);

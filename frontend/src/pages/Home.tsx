@@ -6,7 +6,7 @@ import EmptyState from '../components/EmptyState';
 import { ArrowRight, Flame, ShieldCheck, Users, CheckCircle2, Star, Sparkles, MapPin } from 'lucide-react';
 import { getTours } from '../services/tourService';
 import { Link } from 'react-router-dom';
-import { TOP_AGENCIES } from './AgenciesDashboard';
+import { getAllToursList, getAllAgenciesList } from '../services/agencyStore';
 
 // Comprehensive mock tours fallback data
 const MOCK_FEATURED_TOURS: Tour[] = [
@@ -136,14 +136,12 @@ const Home: React.FC = () => {
     setLoading(true);
     try {
       const data = await getTours();
-      if (data && Array.isArray(data) && data.length > 0) {
-        setTours(data);
-      } else {
-        setTours(MOCK_FEATURED_TOURS);
-      }
+      const merged = getAllToursList(data && Array.isArray(data) && data.length > 0 ? data : MOCK_FEATURED_TOURS);
+      setTours(merged);
     } catch (err) {
       console.warn('Backend unavailable, rendering curated featured tours:', err);
-      setTours(MOCK_FEATURED_TOURS);
+      const merged = getAllToursList(MOCK_FEATURED_TOURS);
+      setTours(merged);
     } finally {
       setLoading(false);
     }
@@ -164,6 +162,8 @@ const Home: React.FC = () => {
   };
 
   // Filter tours based on category tabs and Hero Filter Bar values
+  const featuredAgencies = useMemo(() => getAllAgenciesList().slice(0, 4), []);
+
   const filteredTours = useMemo(() => {
     return tours.filter((tour) => {
       // Price filter
@@ -287,7 +287,7 @@ const Home: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {TOP_AGENCIES.map((agency) => (
+          {featuredAgencies.map((agency) => (
             <div key={agency.id} className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between space-y-4">
               <div className="space-y-3">
                 <div className="flex items-center gap-3">

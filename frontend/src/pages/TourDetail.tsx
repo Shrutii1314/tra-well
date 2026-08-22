@@ -31,6 +31,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { getTour, getReviewsForTour, createReview, deleteReview } from '../services/tourService';
+import { getAllToursList } from '../services/agencyStore';
 import { createBooking } from '../services/bookingService';
 import { useAuth } from '../context/AuthContext';
 import TourMap from '../components/TourMap';
@@ -170,10 +171,20 @@ const TourDetail: React.FC = () => {
       setLoading(true);
       try {
         if (id) {
-          const data = await getTour(id);
-          setTour(data);
-          if (data?.startDates?.[0]) {
-            setSelectedBatchDate(data.startDates[0]);
+          try {
+            const data = await getTour(id);
+            if (data) {
+              setTour(data);
+              if (data?.startDates?.[0]) setSelectedBatchDate(data.startDates[0]);
+            } else {
+              throw new Error('Not found in API');
+            }
+          } catch {
+            const allTours = getAllToursList([]);
+            const localMatch = allTours.find((t) => t.id === id || t._id === id);
+            if (localMatch) {
+              setTour(localMatch);
+            }
           }
         }
       } catch (error) {
